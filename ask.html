@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DocQA Bot</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>📤 Upload Document</h2>
+    <input type="file" id="fileInput" accept=".pdf,.docx" />
+    <button onclick="uploadFile()">Upload</button>
+    <p id="uploadStatus"></p>
+
+    <hr>
+
+    <h2>💬 Ask a Question</h2>
+    <input type="text" id="questionInput" placeholder="Type your question..." />
+    <button onclick="askQuestion()">Ask</button>
+    <p><strong>Answer:</strong></p>
+    <div id="answerBox"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+body {
+  font-family: sans-serif;
+  background: #f7f7f7;
+  padding: 20px;
+  margin: 0;
+}
+
+.container {
+  max-width: 500px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+input[type="file"],
+input[type="text"],
+input[type="email"],
+textarea {
+  width: 100%;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+button {
+  padding: 10px 20px;
+  margin: 8px 0;
+  border: none;
+  background: #007bff;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+#response,
+#uploadStatus,
+#answerBox {
+  background: #f1f1f1;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+
+hr {
+  margin: 30px 0;
+  border: none;
+  border-top: 1px solid #ddd;
+}
+
+h1, h2 {
+  margin-top: 0;
+}

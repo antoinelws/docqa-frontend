@@ -1,47 +1,37 @@
-// script.js - handles upload and question submission
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShipERP Q&A Bot</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>ShipERP Document Q&A Bot</h1>
 
-function askQuestion() {
-  const email = document.getElementById("email").value;
-  const question = document.getElementById("question").value;
+    <section>
+      <h2>Ask a Question</h2>
+      <label for="email">Your Email:</label>
+      <input type="email" id="email" placeholder="you@company.com">
 
-  const formData = new FormData();
-  formData.append("user_email", email);
-  formData.append("question", question);
+      <label for="question">Your Question:</label>
+      <textarea id="question" rows="4" cols="50" placeholder="Type your question here..."></textarea>
 
-  fetch("https://docqa-api.onrender.com/ask", {
-    method: "POST",
-    body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById("response").textContent = data.answer || data.error || "No response";
-  })
-  .catch(err => {
-    document.getElementById("response").textContent = "Error: " + err.message;
-  });
-}
+      <button onclick="askQuestion()">Ask</button>
+      <p id="response"></p>
+    </section>
 
-function uploadFile() {
-  const fileInput = document.getElementById('fileInput');
-  const file = fileInput.files[0];
-  if (!file) {
-    alert("Please select a file.");
-    return;
-  }
+    <hr>
 
-  const formData = new FormData();
-  formData.append('file', file);
+    <section>
+      <h2>Upload a Document</h2>
+      <input type="file" id="fileInput" />
+      <button onclick="uploadFile()">Upload</button>
+      <p id="uploadStatus"></p>
+    </section>
+  </div>
 
-  fetch('https://docqa-api.onrender.com/upload', {
-    method: 'POST',
-    body: formData
-  })
-  .then(response => response.text())
-  .then(result => {
-    document.getElementById('uploadStatus').innerText = "Upload successful!";
-  })
-  .catch(error => {
-    console.error('Upload error:', error);
-    document.getElementById('uploadStatus').innerText = "Upload failed.";
-  });
-}
+  <script src="script.js"></script>
+</body>
+</html>

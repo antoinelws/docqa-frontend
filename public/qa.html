@@ -20,7 +20,7 @@
       <label for="question">Your Question:</label>
       <textarea id="question" rows="4" cols="50" placeholder="Ask your question here..."></textarea>
 
-      <button onclick="askQuestion()">Submit</button>
+      <button onclick="console.log('Submit button clicked'); askQuestion()">Submit</button>
       <p id="response"></p>
     </section>
 
@@ -29,11 +29,14 @@
     <section>
       <h2>Upload a Document</h2>
       <input type="file" id="fileInput" />
-      <button onclick="uploadFile()">Upload</button>
+      <button onclick="console.log('Upload button clicked'); uploadFile()">Upload</button>
       <p id="uploadStatus"></p>
     </section>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+  console.log("QA Bot page loaded");
+</script>
+<script src="script.js"></script>
 </body>
 </html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ShipERP Q&A Bot</title>
+</head>
+<body>
+  <h1>Ask a Question</h1>
+  <label for="email">Email:</label>
+  <input type="email" id="email" placeholder="you@company.com"><br><br>
+
+  <label for="question">Question:</label><br>
+  <textarea id="question" rows="4" cols="50" placeholder="Ask your question here..."></textarea><br><br>
+
+  <button onclick="askQuestion()">Submit</button>
+  <p id="response"></p>
+
+  <hr>
+
+  <h2>Upload a Document</h2>
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload</button>
+  <p id="uploadStatus"></p>
+
+  <script>
+    function askQuestion() {
+      const email = document.getElementById("email").value;
+      const question = document.getElementById("question").value;
+
+      const formData = new FormData();
+      formData.append("user_email", email);
+      formData.append("question", question);
+
+      fetch("https://docqa-api.onrender.com/ask", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("response").textContent = data.answer || data.error || "No response";
+      })
+      .catch(err => {
+        document.getElementById("response").textContent = "Error: " + err.message;
+      });
+    }
+
+    function uploadFile() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select a file.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      fetch('https://docqa-api.onrender.com/upload', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.text())
+      .then(result => {
+        document.getElementById('uploadStatus').innerText = "Upload successful!";
+      })
+      .catch(error => {
+        console.error('Upload error:', error);
+        document.getElementById('uploadStatus').innerText = "Upload failed.";
+      });
+    }
+  </script>
+</body>
+</html>

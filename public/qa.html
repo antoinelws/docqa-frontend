@@ -1,72 +1,39 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShipERP Q&A Bot</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Ask a Question</h1>
-  <label for="email">Email:</label>
-  <input type="email" id="email" placeholder="you@company.com"><br><br>
+  <div class="container">
+    <img src="https://www.shiperp.com/wp-content/uploads/2020/04/ShipERP-Logo.png" alt="ShipERP Logo" class="logo">
+    <h1>ShipERP AI Assistant</h1>
+    <p style="text-align: center; font-size: 16px; color: #555;">Ask questions based on documentation indexed from SharePoint.<br>Results may vary based on your internal access.</p>
 
-  <label for="question">Question:</label><br>
-  <textarea id="question" rows="4" cols="50" placeholder="Ask your question here..."></textarea><br><br>
+    <section>
+      <h2>Ask a Question</h2>
+      <label for="email">Your Email:</label>
+      <input type="email" id="email" placeholder="you@company.com" required>
 
-  <button onclick="askQuestion()">Submit</button>
-  <p id="response"></p>
+      <label for="question">Your Question:</label>
+      <textarea id="question" rows="4" cols="50" placeholder="Ask your question here..."></textarea>
 
-  <hr>
+      <button onclick="askQuestion()">Submit</button>
+      <p id="response"></p>
+    </section>
 
-  <h2>Upload a Document</h2>
-  <input type="file" id="fileInput" />
-  <button onclick="uploadFile()">Upload</button>
-  <p id="uploadStatus"></p>
+    <hr>
 
-  <script>
-    function askQuestion() {
-      const email = document.getElementById("email").value;
-      const question = document.getElementById("question").value;
+    <section>
+      <h2>Upload a Document</h2>
+      <input type="file" id="fileInput" />
+      <button onclick="uploadFile()">Upload</button>
+      <p id="uploadStatus"></p>
+    </section>
+  </div>
 
-      const formData = new FormData();
-      formData.append("user_email", email);
-      formData.append("question", question);
-
-      fetch("https://docqa-api.onrender.com/ask", {
-        method: "POST",
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById("response").textContent = data.answer || data.error || "No response";
-      })
-      .catch(err => {
-        document.getElementById("response").textContent = "Error: " + err.message;
-      });
-    }
-
-    function uploadFile() {
-      const fileInput = document.getElementById('fileInput');
-      const file = fileInput.files[0];
-      if (!file) {
-        alert("Please select a file.");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      fetch('https://docqa-api.onrender.com/upload', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.text())
-      .then(result => {
-        document.getElementById('uploadStatus').innerText = "Upload successful!";
-      })
-      .catch(error => {
-        console.error('Upload error:', error);
-        document.getElementById('uploadStatus').innerText = "Upload failed.";
-      });
-    }
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>

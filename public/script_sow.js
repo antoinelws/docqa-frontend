@@ -1,40 +1,47 @@
-async function calculateSOW() {
-  const ecc = parseFloat(document.getElementById("ecc").value);
-  const ewm = parseFloat(document.getElementById("ewm").value);
+async function calculate() {
+  const ecc = parseFloat(document.getElementById("ecc_version").value);
+  const ewm = parseFloat(document.getElementById("ewm_version").value);
   const enhancements = parseInt(document.getElementById("enhancements").value);
-  const testCases = document.getElementById("testCases").value;
+  const testCases = document.getElementById("test_cases").value;
   const rating = document.getElementById("rating").value;
   const corrections = parseFloat(document.getElementById("corrections").value);
-  const configuration = parseFloat(document.getElementById("configuration").value);
+  const config = parseFloat(document.getElementById("configuration").value);
 
-  const response = await fetch("/sow-estimate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ecc_version: ecc,
-      ewm_version: ewm,
-      enhancements,
-      test_cases: testCases,
-      customer_rating: rating,
-      corrections,
-      configuration
-    })
-  });
+  const payload = {
+    ecc_version: ecc,
+    ewm_version: ewm,
+    enhancements: enhancements,
+    test_cases: testCases,
+    customer_rating: rating,
+    corrections: corrections,
+    configuration: config,
+  };
 
-  const result = await response.json();
+  try {
+    const response = await fetch("/sow-estimate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  let html = `
-    <h2>Estimated Hours</h2>
-    <table>
-      <tr><th>Task</th><th>From (hrs)</th><th>To (hrs)</th></tr>
-  `;
+    const data = await response.json();
 
-  for (const [task, [from, to]] of Object.entries(result.details)) {
-    html += `<tr><td>${task}</td><td>${from}</td><td>${to}</td></tr>`;
+    if (data.details) {
+      let html = `<h3>Result</h3>
+      <table>
+        <tr><th>Task</th><th>From (hrs)</th><th>To (hrs)</th></tr>`;
+      for (const [task, values] of Object.entries(data.details)) {
+        html += `<tr><td>${task}</td><td>${values[0]}</td><td>${values[1]}</td></tr>`;
+      }
+      html += `<tr><th>Total</th><th>${data.from}</th><th>${data.to}</th></tr></table>`;
+      document.getElementById("result").innerHTML = html;
+    } else {
+      document.getElementById("result").innerText = "Unexpected error. No data received.";
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    document.getElementById("result").innerText = "An error occurred. Check console.";
   }
-
-  html += `<tr><th>Total</th><th>${result.from}</th><th>${result.to}</th></tr>`;
-  html += `</table>`;
-
-  document.getElementById("results").innerHTML = html;
 }

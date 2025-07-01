@@ -1,25 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SOW Internal Estimator</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <h1>SOW Internal Estimator</h1>
-  <div class="form-container">
-    <label>ShipERP Version ECC: <input id="ecc" type="number" step="0.1" /></label>
-    <label>ShipERP Version EWM: <input id="ewm" type="number" step="0.1" /></label>
-    <label>Number of enhancement: <input id="enhancements" type="number" /></label>
-    <label>Test cases (Yes/No): <input id="testCases" type="text" /></label>
-    <label>Customer Rating (Bad/Average/Good): <input id="rating" type="text" /></label>
-    <label>Development Corrections&Patch Application: <input id="corrections" type="number" /></label>
-    <label>Configuration: <input id="configuration" type="number" /></label>
 
-    <button onclick="calculate()">Calculate</button>
+  <div class="form-group">
+    <label for="ecc">ShipERP Version ECC:</label>
+    <select id="ecc">
+      <option value="">-- Select --</option>
+      <option value="2.3">2.3</option>
+      <option value="2.4">2.4</option>
+      <option value="2.5">2.5</option>
+      <option value="3.0">3.0</option>
+      <option value="3.4">3.4</option>
+      <option value="3.9">3.9</option>
+      <option value="4.1">4.1</option>
+      <option value="4.5">4.5</option>
+      <option value="5.0">5.0</option>
+    </select>
   </div>
 
-  <div id="results" class="result-box"></div>
+  <div class="form-group">
+    <label for="ewm">ShipERP Version EWM:</label>
+    <select id="ewm">
+      <option value="">-- Select --</option>
+      <option value="2.0">≤ 2.1</option>
+      <option value="2.2">> 2.1</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="enhancements">Number of enhancement:</label>
+    <input type="number" id="enhancements" />
+  </div>
+
+  <div class="form-group">
+    <label for="testCases">Test cases:</label>
+    <select id="testCases">
+      <option value="">-- Select --</option>
+      <option value="Yes">Yes</option>
+      <option value="No">No</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="rating">Customer Rating:</label>
+    <select id="rating">
+      <option value="">-- Select --</option>
+      <option value="Good">Good</option>
+      <option value="Average">Average</option>
+      <option value="Bad">Bad</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="corrections">Development Corrections&Patch Application:</label>
+    <input type="number" id="corrections" />
+  </div>
+
+  <div class="form-group">
+    <label for="configuration">Configuration:</label>
+    <input type="number" id="configuration" />
+  </div>
+
+  <button onclick="calculateSOW()">Calculate</button>
+
+  <div id="results"></div>
 
   <script src="script_sow.js"></script>
 </body>

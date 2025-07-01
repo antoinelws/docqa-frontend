@@ -18,7 +18,7 @@ async function calculate() {
   };
 
   try {
-    const response = await fetch("/sow-estimate", {
+    const response = await fetch("https://docqa-api.onrender.com/sow-estimate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

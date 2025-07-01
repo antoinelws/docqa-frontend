@@ -2,134 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SOW Internal Estimator</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f6f8;
-      padding: 2rem;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-    }
-    label {
-      display: block;
-      margin-top: 1rem;
-      font-weight: bold;
-    }
-    input[type="text"] {
-      width: 100%;
-      padding: 0.5rem;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-    button {
-      margin-top: 2rem;
-      width: 100%;
-      padding: 1rem;
-      background-color: #0078D4;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #005fa3;
-    }
-    .result {
-      margin-top: 2rem;
-      padding: 1rem;
-      background-color: #e0f7fa;
-      border: 1px solid #4dd0e1;
-      border-radius: 5px;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>SOW Internal Estimator</h1>
-    <form id="estimatorForm">
-      <label for="customer_name">Customer name:</label>
-      <input type="text" id="customer_name" name="customer_name">
+  <h1>SOW Internal Estimator</h1>
+  <div class="form-container">
+    <label>ShipERP Version ECC: <input id="ecc" type="number" step="0.1" /></label>
+    <label>ShipERP Version EWM: <input id="ewm" type="number" step="0.1" /></label>
+    <label>Number of enhancement: <input id="enhancements" type="number" /></label>
+    <label>Test cases (Yes/No): <input id="testCases" type="text" /></label>
+    <label>Customer Rating (Bad/Average/Good): <input id="rating" type="text" /></label>
+    <label>Development Corrections&Patch Application: <input id="corrections" type="number" /></label>
+    <label>Configuration: <input id="configuration" type="number" /></label>
 
-      <label for="ecc_version">ShipERP Version ECC:</label>
-      <input type="text" id="ecc_version" name="ecc_version">
-
-      <label for="ewm_version">ShipERP Version EWM:</label>
-      <input type="text" id="ewm_version" name="ewm_version">
-
-      <label for="enhancement_count">Number of enhancement:</label>
-      <input type="text" id="enhancement_count" name="enhancement_count">
-
-      <label for="test_cases">Test cases (Yes/No):</label>
-      <input type="text" id="test_cases" name="test_cases">
-
-      <label for="customer_rating">Customer Rating (Bad/Average/Good):</label>
-      <input type="text" id="customer_rating" name="customer_rating">
-
-      <label for="dev_corrections">Development Corrections&Patch Application:</label>
-      <input type="text" id="dev_corrections" name="dev_corrections">
-
-      <label for="configuration">Configuration:</label>
-      <input type="text" id="configuration" name="configuration">
-
-      <button type="submit">Calculate</button>
-    </form>
-    <div id="result" class="result" style="display: none;"></div>
+    <button onclick="calculate()">Calculate</button>
   </div>
 
-  <script>
-    document.getElementById("estimatorForm").addEventListener("submit", function(e) {
-      e.preventDefault();
+  <div id="results" class="result-box"></div>
 
-      const payload = {
-        customer_name: document.getElementById("customer_name").value,
-        ecc_version: document.getElementById("ecc_version").value,
-        ewm_version: document.getElementById("ewm_version").value,
-        enhancement_count: document.getElementById("enhancement_count").value,
-        test_cases: document.getElementById("test_cases").value,
-        customer_rating: document.getElementById("customer_rating").value,
-        dev_corrections: document.getElementById("dev_corrections").value,
-        configuration: document.getElementById("configuration").value
-      };
-
-      fetch("https://docqa-api.onrender.com/sow-estimate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      .then(res => res.json())
-      .then(data => {
-        const resultDiv = document.getElementById("result");
-        resultDiv.style.display = "block";
-        resultDiv.innerHTML = `
-          <strong>Results:</strong><br>
-          C4: ${data.calculated.C4} <br>
-          C5: ${data.calculated.C5} <br>
-          C6: ${data.calculated.C6} <br>
-          C7: ${data.calculated.C7} <br>
-          C8: ${data.calculated.C8} <br>
-          C9: ${data.calculated.C9} <br><br>
-          <strong>Final Result:</strong> ${data.finalResult}
-        `;
-      })
-      .catch(err => {
-        console.error("Error:", err);
-        const resultDiv = document.getElementById("result");
-        resultDiv.style.display = "block";
-        resultDiv.innerHTML = `<strong>Error:</strong> ${err.message}`;
-      });
-    });
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>

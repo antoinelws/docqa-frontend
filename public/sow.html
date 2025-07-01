@@ -5,72 +5,96 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SOW Internal Estimator</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding-top: 40px;
+      text-align: left;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    button {
+      margin-top: 20px;
+    }
+    table {
+      margin-top: 30px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-  <h1>SOW Internal Estimator</h1>
+  <div class="container">
+    <h1>SOW Internal Estimator</h1>
 
-  <div class="form-group">
-    <label for="ecc">ShipERP Version ECC:</label>
-    <select id="ecc">
-      <option value="">-- Select --</option>
-      <option value="2.3">2.3</option>
-      <option value="2.4">2.4</option>
-      <option value="2.5">2.5</option>
-      <option value="3.0">3.0</option>
-      <option value="3.4">3.4</option>
-      <option value="3.9">3.9</option>
-      <option value="4.1">4.1</option>
-      <option value="4.5">4.5</option>
-      <option value="5.0">5.0</option>
-    </select>
+    <label>Customer Name:
+      <input type="text" id="customer" />
+    </label>
+
+    <label>ShipERP Version ECC:
+      <select id="ecc_version">
+        <option value="2.3">2.3</option>
+        <option value="2.5">2.5</option>
+        <option value="3.4">3.4</option>
+        <option value="4.1">4.1</option>
+        <option value="4.5">4.5</option>
+        <option value="5.0">5.0</option>
+      </select>
+    </label>
+
+    <label>ShipERP Version EWM:
+      <select id="ewm_version">
+        <option value="2.0">&lt; 2.1</option>
+        <option value="2.2">&gt; 2.1</option>
+      </select>
+    </label>
+
+    <label>Number of enhancements:
+      <input type="number" id="enhancements" />
+    </label>
+
+    <label>Test cases:
+      <select id="test_cases">
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </label>
+
+    <label>Customer Rating:
+      <select id="rating">
+        <option value="Good">Good</option>
+        <option value="Average">Average</option>
+        <option value="Bad">Bad</option>
+      </select>
+    </label>
+
+    <label>Development Corrections&Patch Application:
+      <input type="number" id="corrections" />
+    </label>
+
+    <label>Configuration:
+      <input type="number" id="configuration" />
+    </label>
+
+    <button onclick="calculate()">Calculate</button>
+
+    <div id="result"></div>
   </div>
-
-  <div class="form-group">
-    <label for="ewm">ShipERP Version EWM:</label>
-    <select id="ewm">
-      <option value="">-- Select --</option>
-      <option value="2.0">≤ 2.1</option>
-      <option value="2.2">> 2.1</option>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label for="enhancements">Number of enhancement:</label>
-    <input type="number" id="enhancements" />
-  </div>
-
-  <div class="form-group">
-    <label for="testCases">Test cases:</label>
-    <select id="testCases">
-      <option value="">-- Select --</option>
-      <option value="Yes">Yes</option>
-      <option value="No">No</option>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label for="rating">Customer Rating:</label>
-    <select id="rating">
-      <option value="">-- Select --</option>
-      <option value="Good">Good</option>
-      <option value="Average">Average</option>
-      <option value="Bad">Bad</option>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label for="corrections">Development Corrections&Patch Application:</label>
-    <input type="number" id="corrections" />
-  </div>
-
-  <div class="form-group">
-    <label for="configuration">Configuration:</label>
-    <input type="number" id="configuration" />
-  </div>
-
-  <button onclick="calculateSOW()">Calculate</button>
-
-  <div id="results"></div>
 
   <script src="script_sow.js"></script>
 </body>

@@ -1,35 +1,40 @@
-async function calculate() {
+async function calculateSOW() {
   const ecc = parseFloat(document.getElementById("ecc").value);
   const ewm = parseFloat(document.getElementById("ewm").value);
   const enhancements = parseInt(document.getElementById("enhancements").value);
-  const testCases = document.getElementById("testCases").value.trim();
-  const rating = document.getElementById("rating").value.trim();
+  const testCases = document.getElementById("testCases").value;
+  const rating = document.getElementById("rating").value;
   const corrections = parseFloat(document.getElementById("corrections").value);
   const configuration = parseFloat(document.getElementById("configuration").value);
 
-  const payload = {
-    ecc_version: ecc,
-    ewm_version: ewm,
-    enhancements,
-    test_cases: testCases,
-    customer_rating: rating,
-    corrections,
-    configuration
-  };
-
-  const res = await fetch("/sow-estimate", {
+  const response = await fetch("/sow-estimate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      ecc_version: ecc,
+      ewm_version: ewm,
+      enhancements,
+      test_cases: testCases,
+      customer_rating: rating,
+      corrections,
+      configuration
+    })
   });
 
-  const data = await res.json();
+  const result = await response.json();
 
-  document.getElementById("results").innerHTML = `
-    <h3>Final Result: ${data.from} to ${data.to} hours</h3>
-    <ul>
-      ${Object.entries(data.details).map(([k, v]) =>
-        `<li>${k}: ${v[0]} to ${v[1]} hrs</li>`).join("")}
-    </ul>
+  let html = `
+    <h2>Estimated Hours</h2>
+    <table>
+      <tr><th>Task</th><th>From (hrs)</th><th>To (hrs)</th></tr>
   `;
+
+  for (const [task, [from, to]] of Object.entries(result.details)) {
+    html += `<tr><td>${task}</td><td>${from}</td><td>${to}</td></tr>`;
+  }
+
+  html += `<tr><th>Total</th><th>${result.from}</th><th>${result.to}</th></tr>`;
+  html += `</table>`;
+
+  document.getElementById("results").innerHTML = html;
 }

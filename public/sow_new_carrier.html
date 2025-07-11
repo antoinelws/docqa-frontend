@@ -5,127 +5,166 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>New Carrier Estimation</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .form-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .form-group label,
+    .form-group input,
+    .form-group select {
+      flex: 1 1 45%;
+      margin: 0.5rem;
+    }
+    fieldset {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+    }
+    .container {
+      max-width: 960px;
+      margin: auto;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <h2>New Carrier Estimation</h2>
 
-    <label>Client Name</label>
-    <select id="clientName">
-      <option value="">Select client</option>
-      <option value="A.O SMITH CORPORATION">A.O SMITH CORPORATION</option>
-      <option value="ABC">ABC</option>
-      <option value="AGUSTA">AGUSTA</option>
-      <option value="AMER SPORTS EUROPE SERVIC">AMER SPORTS EUROPE SERVIC</option>
-      <option value="AMMANN SCHWEIZ AG">AMMANN SCHWEIZ AG</option>
-      <!-- Add the rest of the client names here -->
-    </select>
+    <div class="form-group">
+      <label>Client Name</label>
+      <select id="clientName">
+        <option value="">Select client</option>
+        <option value="A.O SMITH CORPORATION">A.O SMITH CORPORATION</option>
+        <option value="ABC">ABC</option>
+        <option value="AGUSTA">AGUSTA</option>
+        <option value="AMER SPORTS EUROPE SERVIC">AMER SPORTS EUROPE SERVIC</option>
+        <option value="AMMANN SCHWEIZ AG">AMMANN SCHWEIZ AG</option>
+      </select>
 
-    <label>What type of new feature are you interested in?</label>
-    <input id="featureInterest" type="text" />
+      <label>What type of new feature are you interested in?</label>
+      <input id="featureInterest" type="text" />
+    </div>
 
-    <label>Your email address</label>
-    <input id="email" type="email" />
+    <div class="form-group">
+      <label>Your email address</label>
+      <input id="email" type="email" />
 
-    <label>Carrier Name</label>
-    <select id="carrierName">
-      <option value="">Select carrier</option>
-      <option value="ABFS Class">ABFS Class</option>
-      <option value="AIT Worldwide">AIT Worldwide</option>
-      <option value="Amazon Merchant Fulfillment">Amazon Merchant Fulfillment</option>
-      <option value="Amazon Direct Fulfillment">Amazon Direct Fulfillment</option>
-      <option value="ASAP Express">ASAP Express</option>
-      <!-- Add the rest of the carrier names from your list -->
-    </select>
+      <label>Carrier Name</label>
+      <select id="carrierName">
+        <option value="">Select carrier</option>
+        <option value="ABFS Class">ABFS Class</option>
+        <option value="AIT Worldwide">AIT Worldwide</option>
+        <option value="Amazon Merchant Fulfillment">Amazon Merchant Fulfillment</option>
+      </select>
+    </div>
 
-    <label>If not listed, type the carrier name</label>
-    <input id="carrierOther" type="text" />
+    <div class="form-group">
+      <label>If not listed, type the carrier name</label>
+      <input id="carrierOther" type="text" />
 
-    <label>Do you already use this carrier with ShipERP on another plant?</label>
-    <select id="alreadyUsed">
-      <option value="Yes">Yes</option>
-      <option value="No">No</option>
-      <option value="I do not know">I do not know</option>
-    </select>
+      <label>Do you already use this carrier with ShipERP on another plant?</label>
+      <select id="alreadyUsed">
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+        <option value="I do not know">I do not know</option>
+      </select>
+    </div>
 
-    <label>How many Z-enhancements do you currently have with this carrier?</label>
-    <select id="zEnhancements">
-      <option value="Less than 10">Less than 10</option>
-      <option value="Between 10 and 50">Between 10 and 50</option>
-      <option value="More than 50">More than 50</option>
-      <option value="I'm not sure">I'm not sure</option>
-    </select>
+    <div class="form-group">
+      <label>Z-enhancements with this carrier</label>
+      <select id="zEnhancements">
+        <option value="Less than 10">Less than 10</option>
+        <option value="Between 10 and 50">Between 10 and 50</option>
+        <option value="More than 50">More than 50</option>
+        <option value="I'm not sure">I'm not sure</option>
+      </select>
 
-    <label>Will you use it online or offline?</label>
-    <select id="onlineOrOffline">
-      <option value="Online">Online</option>
-      <option value="Offline">Offline</option>
-      <option value="I do not know">I do not know</option>
-    </select>
+      <label>Online or Offline</label>
+      <select id="onlineOrOffline">
+        <option value="Online">Online</option>
+        <option value="Offline">Offline</option>
+        <option value="I do not know">I do not know</option>
+      </select>
+    </div>
 
     <fieldset>
       <legend>What type of feature will you use?</legend>
       <div id="features"></div>
     </fieldset>
 
-    <label>SAP Version</label>
-    <input id="sapVersion" placeholder="Example: ECC 6.0 EHP8" type="text" />
+    <div class="form-group">
+      <label>SAP Version</label>
+      <input id="sapVersion" placeholder="Example: ECC 6.0 EHP8" type="text" />
 
-    <label>ABAP Version</label>
-    <select id="abapVersion">
-      <option value="Above 4.5">Above 4.5</option>
-      <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
-      <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
-      <option value="Lower than 3.6">Lower than 3.6</option>
-    </select>
+      <label>ABAP Version</label>
+      <select id="abapVersion">
+        <option value="Above 4.5">Above 4.5</option>
+        <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
+        <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
+        <option value="Lower than 3.6">Lower than 3.6</option>
+      </select>
+    </div>
 
-    <label>Which system will be used?</label>
-    <input type="checkbox" id="sys_ecc" value="ECC" /> ECC
-    <input type="checkbox" id="sys_ewm" value="EWM" /> EWM
-    <input type="checkbox" id="sys_tm" value="TM" /> TM
+    <div class="form-group">
+      <label>Current ShipERP version</label>
+      <input id="shiperpVersion" type="text" />
 
-    <label>Current ShipERP version</label>
-    <input id="shiperpVersion" type="text" />
+      <label>Do you currently use or have used a SERPCAR carrier?</label>
+      <select id="serpcarUsage">
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+        <option value="I do not know">I do not know</option>
+      </select>
+    </div>
 
-    <label>Do you currently use or have used a SERPCAR carrier?</label>
-    <select id="serpcarUsage">
-      <option value="Yes">Yes</option>
-      <option value="No">No</option>
-      <option value="I do not know">I do not know</option>
-    </select>
+    <fieldset>
+      <legend>Which system will be used?</legend>
+      <label><input type="checkbox" id="sys_ecc" value="ECC" /> ECC</label>
+      <label><input type="checkbox" id="sys_ewm" value="EWM" /> EWM</label>
+      <label><input type="checkbox" id="sys_tm" value="TM" /> TM</label>
+    </fieldset>
 
-    <label>Screen used to create shipment</label>
-    <input type="checkbox" id="screen_smallparcel" value="Small Parcel Screen" /> Small Parcel
-    <input type="checkbox" id="screen_planning" value="Planning or TUV Screen" /> Planning or TUV
-    <input type="checkbox" id="screen_tm" value="SAP TM Screen" /> SAP TM
-    <input type="checkbox" id="screen_other" value="Other" /> Other
+    <fieldset>
+      <legend>Screen used to create shipment</legend>
+      <label><input type="checkbox" id="screen_smallparcel" value="Small Parcel Screen" /> Small Parcel</label>
+      <label><input type="checkbox" id="screen_planning" value="Planning or TUV Screen" /> Planning or TUV</label>
+      <label><input type="checkbox" id="screen_tm" value="SAP TM Screen" /> SAP TM</label>
+      <label><input type="checkbox" id="screen_other" value="Other" /> Other</label>
+    </fieldset>
 
-    <label>Shipping FROM location</label>
-    <select multiple id="shipFrom">
-      <option value="US">US</option>
-      <option value="PR">PR</option>
-      <option value="VI">VI</option>
-      <option value="CA">CA</option>
-      <option value="BR">BR</option>
-      <option value="MX">MX</option>
-      <option value="EU">EU</option>
-      <option value="GB">GB</option>
-      <option value="Other">Other</option>
-    </select>
+    <fieldset>
+      <legend>Shipping FROM location</legend>
+      <select multiple id="shipFrom">
+        <option value="US">US</option>
+        <option value="PR">PR</option>
+        <option value="VI">VI</option>
+        <option value="CA">CA</option>
+        <option value="BR">BR</option>
+        <option value="MX">MX</option>
+        <option value="EU">EU</option>
+        <option value="GB">GB</option>
+        <option value="Other">Other</option>
+      </select>
+    </fieldset>
 
-    <label>Shipping TO location</label>
-    <select multiple id="shipTo">
-      <option value="US">US</option>
-      <option value="PR">PR</option>
-      <option value="VI">VI</option>
-      <option value="CA">CA</option>
-      <option value="BR">BR</option>
-      <option value="MX">MX</option>
-      <option value="EU">EU</option>
-      <option value="GB">GB</option>
-      <option value="APO / FPO / DPO locations">APO / FPO / DPO</option>
-      <option value="Other">Other</option>
-    </select>
+    <fieldset>
+      <legend>Shipping TO location</legend>
+      <select multiple id="shipTo">
+        <option value="US">US</option>
+        <option value="PR">PR</option>
+        <option value="VI">VI</option>
+        <option value="CA">CA</option>
+        <option value="BR">BR</option>
+        <option value="MX">MX</option>
+        <option value="EU">EU</option>
+        <option value="GB">GB</option>
+        <option value="APO / FPO / DPO locations">APO / FPO / DPO</option>
+        <option value="Other">Other</option>
+      </select>
+    </fieldset>
 
     <button onclick="submitEstimate()">Calculate Effort</button>
   </div>

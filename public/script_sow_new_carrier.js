@@ -11,19 +11,14 @@ function submitEstimate() {
     features: Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value),
     sapVersion: document.getElementById("sapVersion").value,
     abapVersion: document.getElementById("abapVersion").value,
-    systemUsed: [
-      document.getElementById("sys_ecc").checked ? "ECC" : null,
-      document.getElementById("sys_ewm").checked ? "EWM" : null,
-      document.getElementById("sys_tm").checked ? "TM" : null
-    ].filter(Boolean),
     shiperpVersion: document.getElementById("shiperpVersion").value,
     serpcarUsage: document.getElementById("serpcarUsage").value,
-    shipmentScreens: [
-      document.getElementById("screen_smallparcel").checked ? "Small Parcel Screen" : null,
-      document.getElementById("screen_planning").checked ? "Planning or TUV Screen" : null,
-      document.getElementById("screen_tm").checked ? "SAP TM Screen" : null,
-      document.getElementById("screen_other").checked ? "Other" : null
-    ].filter(Boolean),
+    systemUsed: ["sys_ecc", "sys_ewm", "sys_tm"]
+      .filter(id => document.getElementById(id).checked)
+      .map(id => document.getElementById(id).value),
+    shipmentScreens: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
+      .filter(id => document.getElementById(id).checked)
+      .map(id => document.getElementById(id).value),
     shipFrom: Array.from(document.getElementById("shipFrom").selectedOptions).map(el => el.value),
     shipTo: Array.from(document.getElementById("shipTo").selectedOptions).map(el => el.value)
   };
@@ -33,11 +28,20 @@ function submitEstimate() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(form),
   })
-    .then(res => res.json())
-    .then(data => {
-      alert(`Estimated Effort: ${data.total_effort} days`);
+    .then(async (res) => {
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        alert(`Estimated Effort: ${json.total_effort} days`);
+      } catch (err) {
+        console.error("Invalid JSON from server:", text);
+        alert("Error: Backend did not return valid JSON.\n\n" + text);
+      }
     })
-    .catch(err => alert("Error: " + err));
+    .catch((err) => {
+      console.error("Request failed:", err);
+      alert("Network or server error occurred: " + err.message);
+    });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

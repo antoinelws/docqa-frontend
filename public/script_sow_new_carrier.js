@@ -23,7 +23,7 @@ function submitEstimate() {
     shipTo: Array.from(document.getElementById("shipTo").selectedOptions).map(el => el.value)
   };
 
-  fetch("/api/estimate/new_carrier", {
+  fetch("https://docqa-api.onrender.com/new_carrier", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(form),

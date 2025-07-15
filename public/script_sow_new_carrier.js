@@ -1,4 +1,4 @@
-function submitEstimate() {
+window.submitEstimate = function () {
   const form = {
     clientName: document.getElementById("clientName").value,
     featureInterest: document.getElementById("featureInterest").value,
@@ -23,36 +23,31 @@ function submitEstimate() {
     shipTo: Array.from(document.getElementById("shipTo").selectedOptions).map(el => el.value)
   };
 
-fetch("https://docqa-api.onrender.com/estimate/new_carrier", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(form),
-})
-  .then(async (res) => {
-    const text = await res.text();
-    try {
-      const json = JSON.parse(text);
-      console.log("Backend response:", json);
-      if (json.total_effort !== undefined) {
-        alert(`Estimated Effort: ${json.total_effort} days`);
-      } else {
-        alert("No total_effort returned:\n\n" + JSON.stringify(json, null, 2));
-      }
-    } catch (err) {
-      console.error("Invalid JSON from server:", text);
-      alert("Error: Backend did not return valid JSON.\n\n" + text);
-    }
+  fetch("https://docqa-api.onrender.com/estimate/new_carrier", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(form),
   })
-  .catch((err) => {
-    console.error("Fetch failed:", err);
-    alert("Network or server error: " + err);
-  });
-
+    .then(async (res) => {
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        console.log("Backend response:", json);
+        if (json.total_effort !== undefined) {
+          alert(`Estimated Effort: ${json.total_effort} days`);
+        } else {
+          alert("No total_effort returned:\n\n" + JSON.stringify(json, null, 2));
+        }
+      } catch (err) {
+        console.error("Invalid JSON from server:", text);
+        alert("Error: Backend did not return valid JSON.\n\n" + text);
+      }
+    })
     .catch((err) => {
-      console.error("Request failed:", err);
-      alert("Network or server error occurred: " + err.message);
+      console.error("Fetch failed:", err);
+      alert("Network or server error: " + err.message);
     });
-}
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   const features = [

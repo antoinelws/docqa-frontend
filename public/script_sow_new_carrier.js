@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const json = JSON.parse(text);
           console.log("Backend response:", json);
           if (json.total_effort !== undefined) {
-            alert(`Estimated Effort: ${json.total_effort} days`);
+            displayResult(`Estimated Effort: ${json.total_effort} hours`);
           } else {
             alert("No total_effort returned:\n\n" + JSON.stringify(json, null, 2));
           }

@@ -22,7 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Submit function for the form
   window.submitEstimate = function () {
     const form = {
       clientName: document.getElementById("clientName")?.value,
@@ -46,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .map(id => document.getElementById(id)?.value),
       shipFrom: Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
       shipTo: Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
-      shipToVolume: document.getElementById("zEnhancements")?.value, // assumed same dropdown used for shipToVolume
+      shipToVolume: document.getElementById("zEnhancements")?.value,
       shipmentScreenString: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
         .filter(id => document.getElementById(id)?.checked)
         .map(id => document.getElementById(id)?.value)
@@ -66,16 +65,24 @@ document.addEventListener("DOMContentLoaded", () => {
           if (json.total_effort !== undefined) {
             displayResult(`Estimated Effort: ${json.total_effort} hours`);
           } else {
-            alert("No total_effort returned:\n\n" + JSON.stringify(json, null, 2));
+            displayResult("No total_effort returned:\n\n" + JSON.stringify(json, null, 2));
           }
         } catch (err) {
           console.error("Invalid JSON from server:", text);
-          alert("Error: Backend did not return valid JSON.\n\n" + text);
+          displayResult("Error: Backend did not return valid JSON.\n\n" + text);
         }
       })
       .catch((err) => {
         console.error("Fetch failed:", err);
-        alert("Network or server error: " + err.message);
+        displayResult("Network or server error: " + err.message);
       });
   };
 });
+
+function displayResult(message) {
+  const resultBox = document.getElementById("resultBox");
+  if (resultBox) {
+    resultBox.textContent = message;
+    resultBox.style.color = "green";
+  }
+}

@@ -97,7 +97,14 @@
 
     <div class="form-group">
       <label>SAP Version</label>
-      <input id="sapVersion" placeholder="Example: ECC 6.0 EHP8" type="text" />
+      <select id="sapVersion">
+        <option value="">Select version</option>
+        <option value="ECC 6.0 HP">ECC 6.0 HP</option>
+        <option value="ECC 6.0 EHP8">ECC 6.0 EHP8</option>
+        <option value="ECC 6.0 EHP7">ECC 6.0 EHP7</option>
+        <option value="ECC 6.0 EHP6">ECC 6.0 EHP6</option>
+        <option value="S/4HANA">S/4HANA</option>
+      </select>
 
       <label>ABAP Version</label>
       <select id="abapVersion">
@@ -168,6 +175,7 @@
 
     <button onclick="submitEstimate()">Calculate Effort</button>
   </div>
+
   <div id="resultBox" style="margin-top: 2rem; font-size: 1.2rem; font-weight: bold;"></div>
   <script src="script_sow_new_carrier.js"></script>
 </body>

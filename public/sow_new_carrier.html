@@ -44,14 +44,11 @@
         <option value="AMMANN SCHWEIZ AG">AMMANN SCHWEIZ AG</option>
       </select>
 
-      <label>What type of new feature are you interested in?</label>
-      <input id="featureInterest" type="text" />
+      <label>Your email address</label>
+      <input id="email" type="email" />
     </div>
 
     <div class="form-group">
-      <label>Your email address</label>
-      <input id="email" type="email" />
-
       <label>Carrier Name</label>
       <select id="carrierName">
         <option value="">Select carrier</option>
@@ -59,21 +56,19 @@
         <option value="AIT Worldwide">AIT Worldwide</option>
         <option value="Amazon Merchant Fulfillment">Amazon Merchant Fulfillment</option>
       </select>
+
+      <label>If not listed, type the carrier name</label>
+      <input id="carrierOther" type="text" />
     </div>
 
     <div class="form-group">
-      <label>If not listed, type the carrier name</label>
-      <input id="carrierOther" type="text" />
-
       <label>Do you already use this carrier with ShipERP on another plant?</label>
       <select id="alreadyUsed">
         <option value="Yes">Yes</option>
         <option value="No">No</option>
         <option value="I do not know">I do not know</option>
       </select>
-    </div>
 
-    <div class="form-group">
       <label>Z-enhancements with this carrier</label>
       <select id="zEnhancements">
         <option value="Less than 10">Less than 10</option>
@@ -81,7 +76,9 @@
         <option value="More than 50">More than 50</option>
         <option value="I'm not sure">I'm not sure</option>
       </select>
+    </div>
 
+    <div class="form-group">
       <label>Online or Offline</label>
       <select id="onlineOrOffline">
         <option value="Online">Online</option>
@@ -97,27 +94,20 @@
 
     <div class="form-group">
       <label>SAP Version</label>
-      <select id="sapVersion">
-        <option value="">Select version</option>
-        <option value="ECC 6.0 HP">ECC 6.0 HP</option>
-        <option value="ECC 6.0 EHP8">ECC 6.0 EHP8</option>
-        <option value="ECC 6.0 EHP7">ECC 6.0 EHP7</option>
-        <option value="ECC 6.0 EHP6">ECC 6.0 EHP6</option>
-        <option value="S/4HANA">S/4HANA</option>
-      </select>
+      <input id="sapVersion" placeholder="Example: ECC 6.0 EHP8" type="text" />
 
       <label>ABAP Version</label>
-      <select id="abapVersion">
+      <input id="abapVersion" type="text" />
+    </div>
+
+    <div class="form-group">
+      <label>Current ShipERP version</label>
+      <select id="shiperpVersion">
         <option value="Above 4.5">Above 4.5</option>
         <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
         <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
         <option value="Lower than 3.6">Lower than 3.6</option>
       </select>
-    </div>
-
-    <div class="form-group">
-      <label>Current ShipERP version</label>
-      <input id="shiperpVersion" type="text" />
 
       <label>Do you currently use or have used a SERPCAR carrier?</label>
       <select id="serpcarUsage">

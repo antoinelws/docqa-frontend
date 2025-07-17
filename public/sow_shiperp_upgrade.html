@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShipERP Upgrade Estimation</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .form-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .form-group label,
+    .form-group input,
+    .form-group select {
+      flex: 1 1 45%;
+      margin: 0.5rem;
+    }
+    .container {
+      max-width: 960px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>ShipERP Upgrade Estimation</h2>
+
+    <div class="form-group">
+      <label>What's your current ShipERP Version?</label>
+      <select id="shiperpVersionUpgrade">
+        <option value="Above 4.5">Above 4.5</option>
+        <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
+        <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
+        <option value="Lower than 3.6">Lower than 3.6</option>
+      </select>
+
+      <label>How many Z enhancement do you currently have with ShipERP?</label>
+      <select id="zenhancementsUpgrade">
+        <option value="1 to 10">1 to 10</option>
+        <option value="10 to 50">10 to 50</option>
+        <option value="50 to 100">50 to 100</option>
+        <option value="More than 100">More than 100</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>How many ONLINE carriers are you currently using in production, through ShipERP?</label>
+      <select id="onlineCarrierCountUpgrade">
+        <option value="1 to 5">1 to 5</option>
+        <option value="6 to 10">6 to 10</option>
+        <option value="More than 10">More than 10</option>
+      </select>
+
+      <label>Do you use ShipEWM?</label>
+      <select id="ewmUsageUpgrade">
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>What ShipERP modules are you currently using?</label>
+      <select multiple id="modulesUsedUpgrade">
+        <option value="Sales Order">Sales Order</option>
+        <option value="AES/ACE">AES/ACE</option>
+        <option value="Address Validation">Address Validation</option>
+        <option value="Tracking">Tracking</option>
+        <option value="Hazmat">Hazmat</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <button onclick="submitUpgradeEstimate()">Calculate Effort</button>
+    <div id="upgradeResultBox" style="margin-top: 2rem; font-size: 1.2rem; font-weight: bold;"></div>
+  </div>
+
+  <script src="script_sow_upgrade.js"></script>
+</body>
+</html>

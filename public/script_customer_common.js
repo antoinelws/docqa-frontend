@@ -16,9 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     const formData = new FormData();
-    formData.append("service_id", "your_service_id");
-    formData.append("template_id", "your_template_id");
-    formData.append("user_id", "your_user_id");
+    formData.append("service_id", "service_x8qqp19");
+    formData.append("template_id", "template_j3fkvg4");
+    formData.append("user_id", "PuZpMq1o_LbVO4IMJ");
     formData.append("template_params[subject]", `New ${formType} request`);
     formData.append("template_params[message]", messageHtml + `<p><strong>Estimate:</strong> ${estimate}</p>`);
 

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Rollout Estimator</title>
+  <script src="script_customer_common.js"></script>
+</head>
+<body>
+  <h2>Rollout Estimation</h2>
+
+  <!-- Example rollout fields -->
+  <label for="siteCount">How many location will be in scope?</label>
+  <select id="siteCount">
+    <option>Only 1</option>
+    <option>2 to 5</option>
+    <option>More than 5</option>
+  </select>
+
+  <!-- Add all Rollout-specific dropdowns -->
+
+  <p id="calculatedEffort">Estimated Effort: (calculated on submit)</p>
+  <button onclick="submitCustomerForm('Rollout')">Send Request to ShipERP</button>
+</body>
+</html>

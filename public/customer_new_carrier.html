@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>New Carrier Estimator</title>
+  <script src="script_customer_common.js"></script>
+</head>
+<body>
+  <h2>New Carrier Estimation</h2>
+
+  <label for="clientName">Client Name:</label>
+  <input id="clientName" type="text" />
+
+  <!-- Add all the inputs/dropdowns for New Carrier form here -->
+  <!-- Example -->
+  <label for="shiperpVersion">What's your current ShipERP Version?</label>
+  <select id="shiperpVersion">
+    <option value="Above 4.5">Above 4.5</option>
+    <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
+    <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
+    <option value="Lower than 3.6">Lower than 3.6</option>
+  </select>
+
+  <!-- Repeat other dropdowns from your Excel -->
+
+  <p id="calculatedEffort">Estimated Effort: (calculated on submit)</p>
+  <button onclick="submitCustomerForm('New Carrier')">Send Request to ShipERP</button>
+</body>
+</html>

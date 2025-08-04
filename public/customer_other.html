@@ -1,5 +1,3 @@
-<!-- 4. other_customer.html -->
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -8,6 +6,56 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  ...
+  <div class="container">
+    <h2>Other – Custom Request</h2>
+    <form id="formOther" enctype="multipart/form-data">
+      <label>Customer Name:</label>
+      <input type="text" name="customer" />
+
+      <label>ShipERP Version ECC:</label>
+      <select name="ecc_version">
+        <option value="2.3">2.3</option>
+        <option value="2.5">2.5</option>
+        <option value="3.4">3.4</option>
+        <option value="4.1">4.1</option>
+        <option value="4.5">4.5</option>
+        <option value="5.0">5.0</option>
+      </select>
+
+      <label>ShipERP Version EWM:</label>
+      <select name="ewm_version">
+        <option value="2.0">&lt; 2.1</option>
+        <option value="2.2">&gt; 2.1</option>
+      </select>
+
+      <label>Number of enhancements:</label>
+      <input type="number" name="enhancements" />
+
+      <label>Test cases:</label>
+      <select name="test_cases">
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+
+      <label>Customer Rating:</label>
+      <select name="rating">
+        <option value="Good">Good</option>
+        <option value="Average">Average</option>
+        <option value="Bad">Bad</option>
+      </select>
+
+      <label>Development Corrections & Patch Application:</label>
+      <input type="number" name="corrections" />
+
+      <label>Configuration:</label>
+      <input type="number" name="configuration" />
+
+      <label>Functional / Technical Specification File (required):</label>
+      <input type="file" id="specFile" name="sowFile" required />
+
+      <button type="button" class="btn primary" onclick="submitCustomerForm('Other')">Send request to ShipERP</button>
+    </form>
+  </div>
+  <script src="script_customer.js"></script>
 </body>
 </html>

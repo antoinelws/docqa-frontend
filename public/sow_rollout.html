@@ -1,53 +1,31 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>New Rollout Estimation</title>
+  <title>Rollout – Customer Request</title>
   <link rel="stylesheet" href="style.css" />
-  <style>
-    .form-group {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin-bottom: 1rem;
-    }
-    .form-group label,
-    .form-group input,
-    .form-group select {
-      flex: 1 1 45%;
-      margin: 0.5rem;
-    }
-    .container {
-      max-width: 960px;
-      margin: auto;
-    }
-  </style>
 </head>
 <body>
   <div class="container">
-    <h2>New Rollout Estimation</h2>
-
-    <div class="form-group">
+    <h2>New Rollout – Request Form</h2>
+    <form id="formRollout">
       <label>How many location will be in scope?</label>
-      <select id="siteCount">
+      <select name="siteCount">
         <option value="Only 1">Only 1</option>
         <option value="2 to 5">2 to 5</option>
         <option value="More than 5">More than 5</option>
       </select>
 
       <label>Where is your new location located?</label>
-      <select id="shipToRegion">
+      <select name="shipToRegion">
         <option value="US">US</option>
         <option value="EU">EU</option>
         <option value="ASIA">ASIA</option>
         <option value="AFRICA">AFRICA</option>
       </select>
-    </div>
 
-    <div class="form-group">
       <label>What ShipERP module will be used at this new location?</label>
-      <select multiple id="zEnhancementRollout">
+      <select name="zEnhancementRollout" multiple>
         <option value="Sales Order">Sales Order</option>
         <option value="Core">Core</option>
         <option value="Hazardous materials">Hazardous materials</option>
@@ -60,26 +38,32 @@
       </select>
 
       <label>Will this new location be following the exact same shipping process and business rules than one existing location?</label>
-      <select id="blueprintNeeded">
+      <select name="blueprintNeeded">
         <option value="Yes">Yes</option>
         <option value="No">No</option>
         <option value="More or less">More or less</option>
       </select>
-    </div>
 
-    <div class="form-group">
       <label>How many carriers will this new location be using through ShipERP?</label>
-      <select id="onlineOfflineRollout">
+      <select name="onlineOfflineRollout">
         <option value="1 to 3">1 to 3</option>
         <option value="3 to 10">3 to 10</option>
         <option value="More than 10">More than 10</option>
       </select>
-    </div>
 
-    <button onclick="submitRolloutEstimate()">Calculate Effort</button>
-    <div id="rolloutResultBox" style="margin-top: 2rem; font-size: 1.2rem; font-weight: bold;"></div>
+      <button type="submit" class="btn primary">Send request to ShipERP</button>
+    </form>
   </div>
-
-  <script src="script_sow_rollout.js"></script>
+  <script>
+    document.getElementById("formRollout").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      let emailBody = "Rollout SOW Request:%0D%0A";
+      for (const [key, value] of formData.entries()) {
+        emailBody += `${key}: ${value}%0D%0A`;
+      }
+      window.location.href = `mailto:alauwens@erp-is.com?subject=Rollout Request&body=${emailBody}`;
+    });
+  </script>
 </body>
 </html>

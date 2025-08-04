@@ -1,5 +1,3 @@
-<!-- 2. rollout_customer.html -->
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -8,6 +6,54 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  ...
+  <div class="container">
+    <h2>New Rollout – Request Form</h2>
+    <form id="formRollout">
+      <label>How many location will be in scope?</label>
+      <select name="siteCount">
+        <option value="Only 1">Only 1</option>
+        <option value="2 to 5">2 to 5</option>
+        <option value="More than 5">More than 5</option>
+      </select>
+
+      <label>Where is your new location located?</label>
+      <select name="shipToRegion">
+        <option value="US">US</option>
+        <option value="EU">EU</option>
+        <option value="ASIA">ASIA</option>
+        <option value="AFRICA">AFRICA</option>
+      </select>
+
+      <label>What ShipERP module will be used at this new location?</label>
+      <select name="zEnhancementRollout" multiple>
+        <option value="Sales Order">Sales Order</option>
+        <option value="Core">Core</option>
+        <option value="Hazardous materials">Hazardous materials</option>
+        <option value="AES/ACE">AES/ACE</option>
+        <option value="Denied Party Services">Denied Party Services</option>
+        <option value="Address Validation">Address Validation</option>
+        <option value="Freight Audit">Freight Audit</option>
+        <option value="Carrier Portal">Carrier Portal</option>
+        <option value="Supplier Portal">Supplier Portal</option>
+      </select>
+
+      <label>Will this new location be following the exact same shipping process and business rules than one existing location?</label>
+      <select name="blueprintNeeded">
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+        <option value="More or less">More or less</option>
+      </select>
+
+      <label>How many carriers will this new location be using through ShipERP?</label>
+      <select name="onlineOfflineRollout">
+        <option value="1 to 3">1 to 3</option>
+        <option value="3 to 10">3 to 10</option>
+        <option value="More than 10">More than 10</option>
+      </select>
+
+      <button type="button" class="btn primary" onclick="submitCustomerForm('Rollout')">Send request to ShipERP</button>
+    </form>
+  </div>
+  <script src="script_customer.js"></script>
 </body>
 </html>

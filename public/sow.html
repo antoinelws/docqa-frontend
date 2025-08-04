@@ -1,53 +1,19 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SOW Internal Estimator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Other – Custom SOW Request</title>
   <link rel="stylesheet" href="style.css" />
-  <style>
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding-top: 40px;
-      text-align: left;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-    }
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-    }
-    button {
-      margin-top: 20px;
-    }
-    table {
-      margin-top: 30px;
-      width: 100%;
-      border-collapse: collapse;
-    }
-    table, th, td {
-      border: 1px solid #ccc;
-    }
-    th, td {
-      padding: 10px;
-      text-align: center;
-    }
-  </style>
 </head>
 <body>
   <div class="container">
-    <h1>SOW Internal Estimator</h1>
+    <h2>Other – Custom Request</h2>
+    <form id="formOther" enctype="multipart/form-data">
+      <label>Customer Name:</label>
+      <input type="text" name="customer" />
 
-    <label>Customer Name:
-      <input type="text" id="customer" />
-    </label>
-
-    <label>ShipERP Version ECC:
-      <select id="ecc_version">
+      <label>ShipERP Version ECC:</label>
+      <select name="ecc_version">
         <option value="2.3">2.3</option>
         <option value="2.5">2.5</option>
         <option value="3.4">3.4</option>
@@ -55,47 +21,46 @@
         <option value="4.5">4.5</option>
         <option value="5.0">5.0</option>
       </select>
-    </label>
 
-    <label>ShipERP Version EWM:
-      <select id="ewm_version">
+      <label>ShipERP Version EWM:</label>
+      <select name="ewm_version">
         <option value="2.0">&lt; 2.1</option>
         <option value="2.2">&gt; 2.1</option>
       </select>
-    </label>
 
-    <label>Number of enhancements:
-      <input type="number" id="enhancements" />
-    </label>
+      <label>Number of enhancements:</label>
+      <input type="number" name="enhancements" />
 
-    <label>Test cases:
-      <select id="test_cases">
+      <label>Test cases:</label>
+      <select name="test_cases">
         <option value="Yes">Yes</option>
         <option value="No">No</option>
       </select>
-    </label>
 
-    <label>Customer Rating:
-      <select id="rating">
+      <label>Customer Rating:</label>
+      <select name="rating">
         <option value="Good">Good</option>
         <option value="Average">Average</option>
         <option value="Bad">Bad</option>
       </select>
-    </label>
 
-    <label>Development Corrections&Patch Application:
-      <input type="number" id="corrections" />
-    </label>
+      <label>Development Corrections & Patch Application:</label>
+      <input type="number" name="corrections" />
 
-    <label>Configuration:
-      <input type="number" id="configuration" />
-    </label>
+      <label>Configuration:</label>
+      <input type="number" name="configuration" />
 
-    <button onclick="calculate()">Calculate</button>
+      <label>Functional / Technical Specification File (required):</label>
+      <input type="file" name="sowFile" required />
 
-    <div id="result"></div>
+      <button type="submit" class="btn primary">Send request to ShipERP</button>
+    </form>
   </div>
-
-  <script src="script_sow.js"></script>
+  <script>
+    document.getElementById("formOther").addEventListener("submit", function (e) {
+      e.preventDefault();
+      alert("Thank you. Please email the filled form with the attached specification file directly to alauwens@erp-is.com");
+    });
+  </script>
 </body>
 </html>

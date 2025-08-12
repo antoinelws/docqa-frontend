@@ -1,12 +1,24 @@
-// script_customer.js — Customer forms unified sender (EmailJS + Estimation)
+// script_customer.js — Customer forms (EmailJS + Estimation + Excel attachment)
 
-// ====== CONFIG EmailJS ======
+// ====== EmailJS config ======
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_sow_customer"; // <-- mettre le nom de ton template qui contient {{{message_html}}}
+const TEMPLATE_ID = "template_sow_customer"; // doit avoir {{{message_html}}} dans le corps
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com";   // destinataire final
 
 document.addEventListener("DOMContentLoaded", () => {
+
+  // ---------- SheetJS loader (auto) ----------
+  async function ensureSheetJS() {
+    if (window.XLSX) return;
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
 
   // ---------- utils ----------
   function textOrArray(val) {
@@ -19,7 +31,6 @@ document.addEventListener("DOMContentLoaded", () => {
     inputs.forEach(el => {
       if (el.type === "button" || el.type === "submit") return;
 
-      // label via for=id sinon name/id
       const key =
         (el.id && document.querySelector(`label[for='${el.id}']`)?.textContent?.trim()) ||
         el.name || el.id;
@@ -73,9 +84,37 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>`;
   }
 
+  async function buildExcelFile(formType, formFields, estimate) {
+    await ensureSheetJS();
+    const wb = XLSX.utils.book_new();
+
+    // Q&A sheet
+    const qaRows = [["Question", "Answer"]];
+    Object.entries(formFields).forEach(([k, v]) => {
+      qaRows.push([k, Array.isArray(v) ? v.join(", ") : v]);
+    });
+    const wsQA = XLSX.utils.aoa_to_sheet(qaRows);
+    XLSX.utils.book_append_sheet(wb, wsQA, "Q&A");
+
+    // Estimate sheet
+    const estRows = [["Field", "Value"]];
+    estRows.push(["Form Type", formType]);
+    estRows.push(["Total", estimate?.total ?? "N/A"]);
+    if (estimate?.breakdown) {
+      Object.entries(estimate.breakdown).forEach(([k,v]) => estRows.push([k, v]));
+    }
+    const wsEst = XLSX.utils.aoa_to_sheet(estRows);
+    XLSX.utils.book_append_sheet(wb, wsEst, "Estimate");
+
+    const arrayBuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    return new File([arrayBuf], `SOW_${formType.replace(/\s+/g,'_')}.xlsx`, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+  }
+
   // ---------- estimation logic (mirror interne) ----------
   async function estimateNewCarrier() {
-    // Checkboxes features (sur version customer "features" est un groupe de cases)
+    // group "features" (checkboxes)
     const features = Array.from(document.querySelectorAll("input[name='features']:checked")).map(x => x.value);
 
     const payload = {
@@ -123,7 +162,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function estimateRollout() {
-    // script_sow_rollout.js
     const siteCount = document.getElementById("siteCount")?.value;
     const shipToRegion = document.getElementById("shipToRegion")?.value;
     const blueprintNeeded = document.getElementById("blueprintNeeded")?.value;
@@ -150,7 +188,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function estimateUpgrade() {
-    // script_sow_upgrade.js
     const shiperpVersion = document.getElementById("shiperpVersionUpgrade")?.value;
     const zenhancements  = document.getElementById("zenhancementsUpgrade")?.value;
     const onlineCarriers = document.getElementById("onlineCarrierCountUpgrade")?.value;
@@ -189,7 +226,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function estimateOther() {
-    // script_sow.js
     const ecc          = parseFloat(document.getElementById("ecc_version")?.value);
     const ewm          = parseFloat(document.getElementById("ewm_version")?.value);
     const enhancements = parseInt(document.getElementById("enhancements")?.value || "0", 10);
@@ -231,12 +267,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ---------- main ----------
+  // ---------- main send ----------
   window.submitCustomerForm = async function (formType) {
     const specInput = document.getElementById("specFile"); // présent sur "Other"
     const fields    = collectFormFields();
 
-    // 1) calcul de l’estimation selon le type
+    // 1) calcul
     let estimate = { total: "N/A", breakdown: {} };
     if (formType === "New Carrier") {
       estimate = await estimateNewCarrier();
@@ -248,10 +284,13 @@ document.addEventListener("DOMContentLoaded", () => {
       estimate = await estimateOther();
     }
 
-    // 2) construire l'HTML lisible (Questions/Réponses + Estimation)
+    // 2) HTML lisible
     const html = buildHtmlSummary(formType, fields, estimate);
 
-    // 3) envoyer via EmailJS (send-form pour gérer les pièces jointes)
+    // 3) Excel (Q&A + Estimate)
+    const excelFile = await buildExcelFile(formType, fields, estimate);
+
+    // 4) EmailJS (send-form) + pièces jointes
     const fd = new FormData();
     fd.append("service_id", SERVICE_ID);
     fd.append("template_id", TEMPLATE_ID);
@@ -263,11 +302,15 @@ document.addEventListener("DOMContentLoaded", () => {
     fd.append("template_params[reply_to]", fields["Your email address"] || "");
     fd.append("template_params[message_html]", html);
 
+    // Spec file (si présent)
     if (specInput && specInput.files && specInput.files.length > 0) {
       const f = specInput.files[0];
       if (f.size > 10 * 1024 * 1024) { alert("The file exceeds 10MB."); return; }
       fd.append("attachments", f, f.name);
     }
+
+    // Excel généré
+    fd.append("attachments", excelFile, excelFile.name);
 
     try {
       const res = await fetch("https://api.emailjs.com/api/v1.0/email/send-form", {

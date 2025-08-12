@@ -5,82 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Other – Customer Request</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .form-group{display:flex;flex-wrap:wrap;justify-content:space-between;margin-bottom:1rem}
+    .form-group label,.form-group input,.form-group select{flex:1 1 45%;margin:.5rem}
+    fieldset{margin-top:1rem;padding:1rem;border:1px solid #ccc}
+    .container{max-width:960px;margin:auto}
+    .btn.primary{background:#0c3c60;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;margin-top:16px}
+    .btn.primary:hover{background:#0a2f4a}
+  </style>
 </head>
 <body>
   <div class="container">
     <h2>Other – Custom Request</h2>
+
     <form id="formOther" enctype="multipart/form-data">
-      <div class="form-row">
-        <div class="form-col">
-          <label for="customer">Customer Name</label>
-          <input id="customer" type="text" name="customer" />
-        </div>
-        <div class="form-col">
-          <label for="test_cases">Test cases</label>
-          <select id="test_cases" name="test_cases">
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-          </select>
-        </div>
+      <div class="form-group">
+        <label>Customer Name:</label>
+        <input type="text" id="customer" name="customer" />
+
+        <label>Test cases:</label>
+        <select id="test_cases" name="test_cases">
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
       </div>
 
-      <div class="form-row">
-        <div class="form-col">
-          <label for="ecc_version">ShipERP Version ECC</label>
-          <select id="ecc_version" name="ecc_version">
-            <option value="2.3">2.3</option>
-            <option value="2.5">2.5</option>
-            <option value="3.4">3.4</option>
-            <option value="4.1">4.1</option>
-            <option value="4.5">4.5</option>
-            <option value="5.0">5.0</option>
-          </select>
-        </div>
-        <div class="form-col">
-          <label for="ewm_version">ShipERP Version EWM</label>
-          <select id="ewm_version" name="ewm_version">
-            <option value="2.0">&lt; 2.1</option>
-            <option value="2.2">&gt; 2.1</option>
-          </select>
-        </div>
+      <div class="form-group">
+        <label>ShipERP Version ECC:</label>
+        <select id="ecc_version" name="ecc_version">
+          <option value="2.3">2.3</option>
+          <option value="2.5">2.5</option>
+          <option value="3.4">3.4</option>
+          <option value="4.1">4.1</option>
+          <option value="4.5">4.5</option>
+          <option value="5.0">5.0</option>
+        </select>
+
+        <label>ShipERP Version EWM:</label>
+        <select id="ewm_version" name="ewm_version">
+          <option value="2.0">&lt; 2.1</option>
+          <option value="2.2">&gt; 2.1</option>
+        </select>
       </div>
 
-      <div class="form-row">
-        <div class="form-col">
-          <label for="enhancements">Number of enhancements</label>
-          <input id="enhancements" type="number" name="enhancements" />
-        </div>
-        <div class="form-col">
-          <label for="rating">Customer Rating</label>
-          <select id="rating" name="rating">
-            <option value="Good">Good</option>
-            <option value="Average">Average</option>
-            <option value="Bad">Bad</option>
-          </select>
-        </div>
+      <div class="form-group">
+        <label>Number of enhancements:</label>
+        <input type="number" id="enhancements" name="enhancements" />
+
+        <label>Customer Rating:</label>
+        <select id="rating" name="rating">
+          <option value="Good">Good</option>
+          <option value="Average">Average</option>
+          <option value="Bad">Bad</option>
+        </select>
       </div>
 
-      <div class="form-row">
-        <div class="form-col">
-          <label for="corrections">Development Corrections & Patch Application</label>
-          <input id="corrections" type="number" name="corrections" />
-        </div>
-        <div class="form-col">
-          <label for="configuration">Configuration</label>
-          <input id="configuration" type="number" name="configuration" />
-        </div>
+      <div class="form-group">
+        <label>Development Corrections & Patch Application:</label>
+        <input type="number" id="corrections" name="corrections" />
+
+        <label>Configuration:</label>
+        <input type="number" id="configuration" name="configuration" />
       </div>
 
-      <div class="form-row">
-        <div class="form-col">
-          <label for="specFile">Functional / Technical Specification File (required)</label>
-          <input id="specFile" type="file" name="sowFile" required />
-        </div>
-      </div>
+      <fieldset>
+        <legend>Functional / Technical Specification File (required)</legend>
+        <input type="file" id="specFile" name="sowFile" required />
+      </fieldset>
 
       <button type="button" class="btn primary" onclick="submitCustomerForm('Other')">Send request to ShipERP</button>
     </form>
   </div>
+
   <script src="script_customer.js"></script>
 </body>
 </html>

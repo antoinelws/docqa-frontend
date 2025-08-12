@@ -2,7 +2,7 @@
 
 // ====== EmailJS config ======
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_sow_customer"; // doit avoir {{{message_html}}} dans le corps
+const TEMPLATE_ID = "template_j3fkvg4"; // doit avoir {{{message_html}}} dans le corps
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com";   // destinataire final
 

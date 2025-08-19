@@ -1,13 +1,16 @@
-// script_customer.js — Compact EmailJS vars + Excel attachment + hard fallback
+// script_customer.js — minimal vars, toggleable attachments, hard fallback
 
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // Template body in Code Editor: <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // Template body: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com";
 
-document.addEventListener("DOMContentLoaded", () => {
+// ---- toggles (start both false to diagnose) ----
+const ATTACH_EXCEL = false; // set true after test
+const ATTACH_SPEC  = false; // set true after test
 
-  // --------- Load SheetJS on demand ----------
+document.addEventListener("DOMContentLoaded", () => {
+  // ---------- Load SheetJS on demand ----------
   async function ensureSheetJS() {
     if (window.XLSX) return;
     await new Promise((resolve, reject) => {
@@ -17,8 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --------- Helpers ----------
-  function textOrArray(v){ return Array.isArray(v) ? v.join(", ") : (v ?? ""); }
+  // ---------- Helpers ----------
+  const textOrArray = v => Array.isArray(v) ? v.join(", ") : (v ?? "");
 
   function collectFormFields() {
     const inputs = document.querySelectorAll("input, select, textarea");
@@ -39,22 +42,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function buildTinyEmail(formType, fields, estimate) {
-    const who = fields["Client Name"] || fields["Customer Name"] || "";
+    const who   = fields["Client Name"] || fields["Customer Name"] || "";
     const reply = fields["Your email address"] || "";
     const total = estimate?.total ?? "N/A";
-    // super small body (few hundred bytes)
     return `<div style="font-family:Arial,sans-serif;font-size:14px">
       <h3 style="margin:0 0 6px">SOW – ${formType}</h3>
       <p style="margin:4px 0"><b>Client:</b> ${who || "-"}</p>
       <p style="margin:4px 0"><b>Reply-to:</b> ${reply || "-"}</p>
       <p style="margin:4px 0"><b>Estimate (total):</b> ${total}</p>
-      <p style="margin:6px 0 0">Full Q&amp;A + breakdown in the attached Excel.</p>
+      <p style="margin:6px 0 0">Full details are in the attachment.</p>
     </div>`;
   }
 
   async function buildExcelFile(formType, formFields, estimate) {
     await ensureSheetJS();
     const wb = XLSX.utils.book_new();
+
     const qa = [["Question","Answer"]];
     Object.entries(formFields).forEach(([k,v]) => qa.push([k, textOrArray(v)]));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(qa), "Q&A");
@@ -71,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --------- Estimation (same logic you approved) ----------
+  // ---------- Estimation logic (same as before) ----------
   async function estimateNewCarrier() {
     const features = Array.from(document.querySelectorAll("input[name='features']:checked")).map(x=>x.value);
     const payload = {
@@ -158,26 +161,35 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch(e){ return { total:"N/A", breakdown:{ "Error": e.message } }; }
   }
 
-  // --------- Main send (compact vars + retry fallback) ----------
-  window.submitCustomerForm = async function(formType){
+  // ---------- main ----------
+  window.submitCustomerForm = async function (formType) {
     const specInput = document.getElementById("specFile");
     const fields    = collectFormFields();
 
-    // compute estimate
     let estimate = { total:"N/A", breakdown:{} };
     if (formType==="New Carrier") estimate = await estimateNewCarrier();
     else if (formType==="Rollout") estimate = estimateRollout();
     else if (formType==="Upgrade") estimate = estimateUpgrade();
     else if (formType==="Other")   estimate = await estimateOther();
 
-    // tiny body
+    // Very small body
     const messageHtml = buildTinyEmail(formType, fields, estimate);
 
-    // Excel attachment
-    const excelFile = await buildExcelFile(formType, fields, estimate);
+    // Build attachments according to toggles
+    const attachments = [];
+    if (ATTACH_EXCEL) {
+      const xlsx = await buildExcelFile(formType, fields, estimate);
+      attachments.push(xlsx);
+      console.log("[SOW] Excel size:", xlsx.size, "bytes");
+    }
+    if (ATTACH_SPEC && specInput && specInput.files && specInput.files.length > 0) {
+      const f = specInput.files[0];
+      if (f.size > 10 * 1024 * 1024) { alert("The file exceeds 10MB."); return; }
+      attachments.push(f);
+      console.log("[SOW] Spec size:", f.size, "bytes");
+    }
 
-    // build FormData with ONLY minimal vars (no template_params[...] nesting)
-    async function sendEmail(useMessageHtml = true) {
+    async function sendEmail(useBody = true) {
       const fd = new FormData();
       fd.append("service_id", SERVICE_ID);
       fd.append("template_id", TEMPLATE_ID);
@@ -188,26 +200,25 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("to_email", TO_EMAIL);
       fd.append("reply_to", fields["Your email address"] || "");
 
-      if (useMessageHtml) fd.append("message_html", messageHtml);
+      if (useBody) fd.append("message_html", messageHtml);
+      attachments.forEach(file => fd.append("attachments", file, file.name));
 
-      if (specInput && specInput.files && specInput.files.length > 0) {
-        const f = specInput.files[0];
-        if (f.size > 10 * 1024 * 1024) { alert("The file exceeds 10MB."); return { ok:false }; }
-        fd.append("attachments", f, f.name);
-      }
-      fd.append("attachments", excelFile, excelFile.name);
-
-      const res = await fetch("https://api.emailjs.com/api/v1.0/email/send-form", { method:"POST", body: fd });
-      return { ok: res.ok, text: await res.text() };
+      const res  = await fetch("https://api.emailjs.com/api/v1.0/email/send-form", { method:"POST", body: fd });
+      const text = await res.text();
+      return { ok: res.ok, text };
     }
 
-    // try with tiny html; if still 50KB error, retry without message_html at all
-    let result = await sendEmail(true);
-    if (!result.ok && /Variables size limit/i.test(result.text)) {
-      result = await sendEmail(false); // subject + attachments only
+    // Try with tiny body; if still rejected for size, retry with NO body at all.
+    let r = await sendEmail(true);
+    if (!r.ok && /Variables size limit/i.test(r.text)) {
+      console.warn("[SOW] Variables limit hit. Retrying without message_html…");
+      r = await sendEmail(false);
     }
 
-    if (result.ok) alert("Your request has been sent to ShipERP!");
-    else alert("Error sending email: " + result.text);
+    if (r.ok) {
+      alert("Your request has been sent to ShipERP!");
+    } else {
+      alert("Error sending email: " + r.text);
+    }
   };
 });

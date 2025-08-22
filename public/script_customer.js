@@ -1,13 +1,14 @@
-// script_customer.js — minimal vars, toggleable attachments, hard fallback
+// script_customer.js — Customer forms (EmailJS + Estimation + Excel attachment)
 
+// ====== EmailJS config ======
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // Template body: <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // Template body must contain {{{message_html}}}
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
-const TO_EMAIL    = "alauwens@erp-is.com";
+const TO_EMAIL    = "alauwens@erp-is.com";   // destination
 
-// ---- toggles (start both false to diagnose) ----
-const ATTACH_EXCEL = false; // set true after test
-const ATTACH_SPEC  = false; // set true after test
+// ---- toggles ----
+const ATTACH_EXCEL = true;   // Excel always attached
+const ATTACH_SPEC  = false;  // set true if you want spec file included
 
 document.addEventListener("DOMContentLoaded", () => {
   // ---------- Load SheetJS on demand ----------
@@ -28,7 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const out = {};
     inputs.forEach(el => {
       if (el.type === "button" || el.type === "submit") return;
-      const key = (el.id && document.querySelector(`label[for='${el.id}']`)?.textContent?.trim()) || el.name || el.id;
+      const key = (el.id && document.querySelector(`label[for='${el.id}']`)?.textContent?.trim())
+        || el.name || el.id;
       if (!key) return;
       if (el.type === "checkbox") {
         if (el.checked) { (out[key] ||= []).push(el.value); }
@@ -42,26 +44,41 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function buildTinyEmail(formType, fields, estimate) {
-    const who   = fields["Client Name"] || fields["Customer Name"] || "";
-    const reply = fields["Your email address"] || "";
+    // helper: pick first non-empty value
+    const pick = (...keys) => {
+      for (const k of keys) {
+        if (k in fields && fields[k] != null && String(fields[k]).trim() !== "") {
+          return Array.isArray(fields[k]) ? fields[k].join(", ") : fields[k];
+        }
+      }
+      return "-";
+    };
+
+    const who   = pick("Client Name", "Customer Name", "clientName", "customer", "client", "company");
+    const reply = pick("Your email address", "email", "Email", "contactEmail");
     const total = estimate?.total ?? "N/A";
-    return `<div style="font-family:Arial,sans-serif;font-size:14px">
-      <h3 style="margin:0 0 6px">SOW – ${formType}</h3>
-      <p style="margin:4px 0"><b>Client:</b> ${who || "-"}</p>
-      <p style="margin:4px 0"><b>Reply-to:</b> ${reply || "-"}</p>
-      <p style="margin:4px 0"><b>Estimate (total):</b> ${total}</p>
-      <p style="margin:6px 0 0">Full details are in the attachment.</p>
-    </div>`;
+
+    return `
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;">
+        <h2 style="margin:0 0 6px 0;">SOW – ${formType}</h2>
+        <p style="margin:4px 0;"><strong>Client:</strong> ${who}</p>
+        <p style="margin:4px 0;"><strong>Reply-to:</strong> ${reply}</p>
+        <p style="margin:4px 0;"><strong>Estimate (total):</strong> ${total}</p>
+        <p style="margin:8px 0 0;">Full Q&amp;A and detailed breakdown are attached in the Excel file.</p>
+      </div>
+    `;
   }
 
   async function buildExcelFile(formType, formFields, estimate) {
     await ensureSheetJS();
     const wb = XLSX.utils.book_new();
 
+    // Q&A
     const qa = [["Question","Answer"]];
     Object.entries(formFields).forEach(([k,v]) => qa.push([k, textOrArray(v)]));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(qa), "Q&A");
 
+    // Estimate
     const est = [["Field","Value"]];
     est.push(["Form Type", formType]);
     est.push(["Total", estimate?.total ?? "N/A"]);
@@ -74,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ---------- Estimation logic (same as before) ----------
+  // ---------- Estimation logic ----------
   async function estimateNewCarrier() {
     const features = Array.from(document.querySelectorAll("input[name='features']:checked")).map(x=>x.value);
     const payload = {
@@ -172,21 +189,17 @@ document.addEventListener("DOMContentLoaded", () => {
     else if (formType==="Upgrade") estimate = estimateUpgrade();
     else if (formType==="Other")   estimate = await estimateOther();
 
-    // Very small body
     const messageHtml = buildTinyEmail(formType, fields, estimate);
 
-    // Build attachments according to toggles
     const attachments = [];
     if (ATTACH_EXCEL) {
       const xlsx = await buildExcelFile(formType, fields, estimate);
       attachments.push(xlsx);
-      console.log("[SOW] Excel size:", xlsx.size, "bytes");
     }
     if (ATTACH_SPEC && specInput && specInput.files && specInput.files.length > 0) {
       const f = specInput.files[0];
       if (f.size > 10 * 1024 * 1024) { alert("The file exceeds 10MB."); return; }
       attachments.push(f);
-      console.log("[SOW] Spec size:", f.size, "bytes");
     }
 
     async function sendEmail(useBody = true) {
@@ -195,10 +208,10 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("template_id", TEMPLATE_ID);
       fd.append("user_id", USER_ID);
 
-      const subjName = fields["Client Name"] || fields["Customer Name"] || "";
+      const subjName = fields["Client Name"] || fields["Customer Name"] || fields["clientName"] || "";
       fd.append("subject", `SOW | ${formType} | ${subjName}`.trim());
       fd.append("to_email", TO_EMAIL);
-      fd.append("reply_to", fields["Your email address"] || "");
+      fd.append("reply_to", fields["Your email address"] || fields["email"] || "");
 
       if (useBody) fd.append("message_html", messageHtml);
       attachments.forEach(file => fd.append("attachments", file, file.name));
@@ -208,7 +221,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return { ok: res.ok, text };
     }
 
-    // Try with tiny body; if still rejected for size, retry with NO body at all.
     let r = await sendEmail(true);
     if (!r.ok && /Variables size limit/i.test(r.text)) {
       console.warn("[SOW] Variables limit hit. Retrying without message_html…");

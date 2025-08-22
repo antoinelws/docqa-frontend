@@ -1,26 +1,12 @@
-// script_customer.js — Customer forms (EmailJS + Estimation + Excel attachment)
+// script_customer.js — JSON email send (compact body, no attachments) to avoid 50KB form limit
 
 // ====== EmailJS config ======
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // Template body must contain {{{message_html}}}
+const TEMPLATE_ID = "template_j3fkvg4"; // Template body in Code Editor must be: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
-const TO_EMAIL    = "alauwens@erp-is.com";   // destination
-
-// ---- toggles ----
-const ATTACH_EXCEL = true;   // Excel always attached
-const ATTACH_SPEC  = false;  // set true if you want spec file included
+const TO_EMAIL    = "alauwens@erp-is.com";   // recipient
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ---------- Load SheetJS on demand ----------
-  async function ensureSheetJS() {
-    if (window.XLSX) return;
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-      s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
-    });
-  }
-
   // ---------- Helpers ----------
   const textOrArray = v => Array.isArray(v) ? v.join(", ") : (v ?? "");
 
@@ -29,13 +15,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const out = {};
     inputs.forEach(el => {
       if (el.type === "button" || el.type === "submit") return;
-      const key = (el.id && document.querySelector(`label[for='${el.id}']`)?.textContent?.trim())
-        || el.name || el.id;
+      const key =
+        (el.id && document.querySelector(`label[for='${el.id}']`)?.textContent?.trim()) ||
+        el.name || el.id;
       if (!key) return;
       if (el.type === "checkbox") {
         if (el.checked) { (out[key] ||= []).push(el.value); }
       } else if (el.multiple) {
-        out[key] = Array.from(el.selectedOptions).map(o=>o.value);
+        out[key] = Array.from(el.selectedOptions).map(o => o.value);
       } else {
         out[key] = el.value || "";
       }
@@ -44,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function buildTinyEmail(formType, fields, estimate) {
-    // helper: pick first non-empty value
+    // read from either label text or name/id
     const pick = (...keys) => {
       for (const k of keys) {
         if (k in fields && fields[k] != null && String(fields[k]).trim() !== "") {
@@ -58,37 +45,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const reply = pick("Your email address", "email", "Email", "contactEmail");
     const total = estimate?.total ?? "N/A";
 
+    // compact preview (first 15 rows to stay tiny)
+    const rows = Object.entries(fields).slice(0, 15).map(([k,v]) => `
+      <tr>
+        <td style="padding:6px;border:1px solid #e5e5e5;"><strong>${k}</strong></td>
+        <td style="padding:6px;border:1px solid #e5e5e5;">${textOrArray(v)}</td>
+      </tr>
+    `).join("");
+
     return `
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;">
         <h2 style="margin:0 0 6px 0;">SOW – ${formType}</h2>
         <p style="margin:4px 0;"><strong>Client:</strong> ${who}</p>
         <p style="margin:4px 0;"><strong>Reply-to:</strong> ${reply}</p>
         <p style="margin:4px 0;"><strong>Estimate (total):</strong> ${total}</p>
-        <p style="margin:8px 0 0;">Full Q&amp;A and detailed breakdown are attached in the Excel file.</p>
+        <h3 style="margin:12px 0 6px;">Preview (partial)</h3>
+        <table style="border-collapse:collapse;width:100%;max-width:820px">${rows}</table>
+        <p style="margin:10px 0 0;color:#666;">(Attachments temporarily disabled to comply with EmailJS size limits.)</p>
       </div>
     `;
-  }
-
-  async function buildExcelFile(formType, formFields, estimate) {
-    await ensureSheetJS();
-    const wb = XLSX.utils.book_new();
-
-    // Q&A
-    const qa = [["Question","Answer"]];
-    Object.entries(formFields).forEach(([k,v]) => qa.push([k, textOrArray(v)]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(qa), "Q&A");
-
-    // Estimate
-    const est = [["Field","Value"]];
-    est.push(["Form Type", formType]);
-    est.push(["Total", estimate?.total ?? "N/A"]);
-    if (estimate?.breakdown) Object.entries(estimate.breakdown).forEach(([k,v]) => est.push([k,v]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(est), "Estimate");
-
-    const buf = XLSX.write(wb, { bookType:"xlsx", type:"array" });
-    return new File([buf], `SOW_${formType.replace(/\s+/g,'_')}.xlsx`, {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    });
   }
 
   // ---------- Estimation logic ----------
@@ -180,9 +155,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---------- main ----------
   window.submitCustomerForm = async function (formType) {
-    const specInput = document.getElementById("specFile");
-    const fields    = collectFormFields();
+    const fields = collectFormFields();
 
+    // compute estimate
     let estimate = { total:"N/A", breakdown:{} };
     if (formType==="New Carrier") estimate = await estimateNewCarrier();
     else if (formType==="Rollout") estimate = estimateRollout();
@@ -191,46 +166,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const messageHtml = buildTinyEmail(formType, fields, estimate);
 
-    const attachments = [];
-    if (ATTACH_EXCEL) {
-      const xlsx = await buildExcelFile(formType, fields, estimate);
-      attachments.push(xlsx);
-    }
-    if (ATTACH_SPEC && specInput && specInput.files && specInput.files.length > 0) {
-      const f = specInput.files[0];
-      if (f.size > 10 * 1024 * 1024) { alert("The file exceeds 10MB."); return; }
-      attachments.push(f);
-    }
-
-    async function sendEmail(useBody = true) {
-      const fd = new FormData();
-      fd.append("service_id", SERVICE_ID);
-      fd.append("template_id", TEMPLATE_ID);
-      fd.append("user_id", USER_ID);
-
-      const subjName = fields["Client Name"] || fields["Customer Name"] || fields["clientName"] || "";
-      fd.append("subject", `SOW | ${formType} | ${subjName}`.trim());
-      fd.append("to_email", TO_EMAIL);
-      fd.append("reply_to", fields["Your email address"] || fields["email"] || "");
-
-      if (useBody) fd.append("message_html", messageHtml);
-      attachments.forEach(file => fd.append("attachments", file, file.name));
-
-      const res  = await fetch("https://api.emailjs.com/api/v1.0/email/send-form", { method:"POST", body: fd });
-      const text = await res.text();
-      return { ok: res.ok, text };
-    }
-
-    let r = await sendEmail(true);
-    if (!r.ok && /Variables size limit/i.test(r.text)) {
-      console.warn("[SOW] Variables limit hit. Retrying without message_html…");
-      r = await sendEmail(false);
-    }
-
-    if (r.ok) {
+    try {
+      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: SERVICE_ID,
+          template_id: TEMPLATE_ID,
+          user_id: USER_ID,
+          template_params: {
+            subject: `SOW | ${formType} | ${fields["Client Name"] || fields["Customer Name"] || fields["clientName"] || ""}`,
+            to_email: TO_EMAIL,
+            reply_to: fields["Your email address"] || fields["email"] || "",
+            message_html: messageHtml
+          }
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
       alert("Your request has been sent to ShipERP!");
-    } else {
-      alert("Error sending email: " + r.text);
+    } catch(e) {
+      alert("Error sending email: " + e.message);
     }
   };
 });

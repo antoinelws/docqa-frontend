@@ -1,14 +1,16 @@
-// script_customer.js — JSON email (compact) with estimation breakdown
-// ================================================================
+// script_customer.js — JSON email (compact) with estimation breakdown + zEnhancements bump
+// ======================================================================
 // EmailJS config (replace with your real values)
 const SERVICE_ID  = "service_x8qqp19";
 const TEMPLATE_ID = "template_j3fkvg4"; // EmailJS template: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com"; // recipient
 
-// ================================================================
+// ======================================================================
 // Helpers
 const textOrArray = v => Array.isArray(v) ? v.join(", ") : (v ?? "");
+const byId = id => document.getElementById(id);
+const byNameVal = name => (document.querySelector(`[name="${name}"]`) || {}).value;
 
 function collectFormFields() {
   const inputs = document.querySelectorAll("input, select, textarea");
@@ -44,45 +46,43 @@ function mapZEnhancementsToInt(label) {
 }
 function coerceInt(v, d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
 
-// ================================================================
+// Central bump function so API path and fallback match
+function zEnhancementsHours(z) {
+  if (z <= 10)       return 2;
+  if (z <= 50)       return 8;
+  if (z <= 100)      return 18;
+  return 32;
+}
+
+// ======================================================================
 // Local fallback (so email NEVER shows “N/A” if the API rejects)
-// Includes Z-enhancements effect (this was the missing piece)
+// Includes Z-enhancements effect
 function newCarrierLocalHeuristic({ featuresCount=0, siteCount=1, region="US", volume=0, zEnhancements=0, alreadyUsed="No" }) {
   let hours = 24; // baseline
 
-  // Features contribution (cap to avoid runaway)
   const hFeatures = Math.min(featuresCount * 4, 20);
   hours += hFeatures;
 
-  // Sites contribution (if you later add a site field)
   const hSites = Math.min(Math.max(0, siteCount - 1) * 3, 30);
   hours += hSites;
 
-  // Volume thresholds (cumulative)
   let hVolume = 0;
   if (volume >= 5000)  hVolume += 6;
   if (volume >= 20000) hVolume += 8;
   if (volume >= 50000) hVolume += 10;
   hours += hVolume;
 
-  // Region (non-US coordination)
   const hRegion = (region && region.toUpperCase() !== "US") ? 6 : 0;
   hours += hRegion;
 
-  // >>> Z-enhancements bump (new)
-  // Calibrated so that changing the bucket changes the estimate noticeably
-  let hZenh = 0;
-  if (zEnhancements <= 10)       hZenh = 2;
-  else if (zEnhancements <= 50)  hZenh = 8;
-  else if (zEnhancements <= 100) hZenh = 18;
-  else                           hZenh = 32;
+  // >>> Z-enhancements bump
+  const hZenh = zEnhancementsHours(zEnhancements);
   hours += hZenh;
 
-  // If the carrier already exists elsewhere, small reduction
   const hReuse = (String(alreadyUsed).toLowerCase() === "yes") ? -4 : 0;
   hours += hReuse;
 
-  hours = Math.max(8, Math.round(hours)); // clamp to sane minimum
+  hours = Math.max(8, Math.round(hours));
   const rate = 180;
   const cost = Math.round(hours * rate);
 
@@ -102,8 +102,6 @@ function newCarrierLocalHeuristic({ featuresCount=0, siteCount=1, region="US", v
 
 function normalizeEstimate(estRaw) {
   const est = estRaw || {};
-  const totalStr = est.total ?? est.total_cost ?? est.totalHours ?? est.total_hours ?? null;
-
   const hoursNum = Number(est.hours ?? est.totalHours ?? est.total_hours);
   const rateNum  = Number(est.rate  ?? est.blendedRate ?? est.blended_rate);
   let   costNum  = Number(est.cost  ?? est.total_cost);
@@ -113,11 +111,11 @@ function normalizeEstimate(estRaw) {
   }
 
   return {
-    totalStr,
     hours: Number.isFinite(hoursNum) ? hoursNum : null,
     rate:  Number.isFinite(rateNum)  ? rateNum  : null,
     cost:  Number.isFinite(costNum)  ? costNum  : null,
-    breakdown: est.breakdown || est.details || est.lines || null
+    breakdown: est.breakdown || est.details || est.lines || null,
+    totalStr: est.total ?? est.total_cost ?? est.totalHours ?? est.total_hours ?? null
   };
 }
 
@@ -205,42 +203,43 @@ function buildTinyEmail(formType, fields, estNorm) {
     </div>`;
 }
 
-// ================================================================
-// Estimation (New Carrier via API + fallback; others local as before)
+// ======================================================================
+// Estimation (New Carrier via API + zEnh bump + fallback)
 async function estimateNewCarrier() {
   const features = Array.from(document.querySelectorAll("input[name='features']:checked")).map(x=>x.value);
-  const systemUsed = ["sys_ecc","sys_ewm","sys_tm"].filter(id=>document.getElementById(id)?.checked).map(id=>document.getElementById(id).value);
+  const systemUsed = ["sys_ecc","sys_ewm","sys_tm"].filter(id=>byId(id)?.checked).map(id=>byId(id).value);
   const shipmentScreens = ["screen_smallparcel","screen_planning","screen_tm","screen_other"]
-    .filter(id=>document.getElementById(id)?.checked).map(id=>document.getElementById(id).value);
+    .filter(id=>byId(id)?.checked).map(id=>byId(id).value);
 
-  const zEnhancementsRaw = document.getElementById("zEnhancements")?.value || "";
+  // Robust fetch of zEnhancements (id OR name)
+  const zEnhancementsRaw = (byId("zEnhancements")?.value || byNameVal("zEnhancements") || "").trim();
   const zEnhancements = mapZEnhancementsToInt(zEnhancementsRaw); // API expects integer
 
   const volumeCandidate =
-    document.getElementById("dailyVolume")?.value ||
-    document.getElementById("transactions")?.value || 0; // use if present
+    byId("dailyVolume")?.value ||
+    byId("transactions")?.value || 0; // use if present
   const shipToVolume = coerceInt(volumeCandidate, 1000); // default > 0 to pass validation
 
-  const alreadyUsed = document.getElementById("alreadyUsed")?.value || "No";
-  const region = document.getElementById("shipToRegion")?.value || "US";
+  const alreadyUsed = byId("alreadyUsed")?.value || byNameVal("alreadyUsed") || "No";
+  const region = byId("shipToRegion")?.value || byNameVal("shipToRegion") || "US";
 
   const payload = {
-    clientName:      document.getElementById("clientName")?.value || "",
-    email:           document.getElementById("email")?.value || "",
-    carrierName:     document.getElementById("carrierName")?.value || "",
-    carrierOther:    document.getElementById("carrierOther")?.value || "",
+    clientName:      byId("clientName")?.value || "",
+    email:           byId("email")?.value || "",
+    carrierName:     byId("carrierName")?.value || "",
+    carrierOther:    byId("carrierOther")?.value || "",
     alreadyUsed,
     zEnhancements, // integer
-    onlineOrOffline: document.getElementById("onlineOrOffline")?.value || "",
+    onlineOrOffline: byId("onlineOrOffline")?.value || "",
     features,
-    sapVersion:      document.getElementById("sapVersion")?.value || "",
-    abapVersion:     document.getElementById("abapVersion")?.value || "",
-    shiperpVersion:  document.getElementById("shiperpVersion")?.value || "",
-    serpcarUsage:    document.getElementById("serpcarUsage")?.value || "",
+    sapVersion:      byId("sapVersion")?.value || "",
+    abapVersion:     byId("abapVersion")?.value || "",
+    shiperpVersion:  byId("shiperpVersion")?.value || "",
+    serpcarUsage:    byId("serpcarUsage")?.value || "",
     systemUsed,
     shipmentScreens,
-    shipFrom: Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(o=>o.value),
-    shipTo:   Array.from(document.getElementById("shipTo")?.selectedOptions   || []).map(o=>o.value),
+    shipFrom: Array.from(byId("shipFrom")?.selectedOptions || []).map(o=>o.value),
+    shipTo:   Array.from(byId("shipTo")?.selectedOptions   || []).map(o=>o.value),
     shipToVolume // required by API
   };
 
@@ -253,18 +252,28 @@ async function estimateNewCarrier() {
     const text = await res.text();
     const json = JSON.parse(text);
     if (json && typeof json.total_effort !== "undefined") {
+      // Start from API estimate
+      let hours = Number(json.total_effort) || 0;
+      // Enforce zEnhancements bump on top of API (so it always reacts)
+      hours += zEnhancementsHours(zEnhancements);
+
+      const rate = 180;
+      const cost = Math.round(hours * rate);
+
+      // Build a clean breakdown; append an explicit Z-enhancements line
+      let breakdown = Array.isArray(json.breakdown) ? json.breakdown : [];
+      breakdown = breakdown.slice(); // shallow copy
+      breakdown.push({ label: "Z-enhancements (client adj.)", hours: zEnhancementsHours(zEnhancements), note: String(zEnhancements) });
+
       return normalizeEstimate({
-        total: `${json.total_effort} hours`,
-        breakdown: Array.isArray(json.breakdown) ? json.breakdown : null,
-        hours: Number(json.total_effort),
-        rate: 180,
-        cost: Number(json.total_effort) ? Math.round(Number(json.total_effort) * 180) : null
+        hours, rate, cost,
+        breakdown
       });
     }
     // Unexpected response -> fallback (includes zEnhancements)
     return normalizeEstimate(newCarrierLocalHeuristic({
       featuresCount: features.length,
-      siteCount: Math.max(1, coerceInt(document.getElementById("siteCount")?.value, 1)),
+      siteCount: Math.max(1, coerceInt(byId("siteCount")?.value, 1)),
       region,
       volume: shipToVolume,
       zEnhancements,
@@ -274,7 +283,7 @@ async function estimateNewCarrier() {
     // Network/validation error -> fallback (includes zEnhancements)
     return normalizeEstimate(newCarrierLocalHeuristic({
       featuresCount: features.length,
-      siteCount: Math.max(1, coerceInt(document.getElementById("siteCount")?.value, 1)),
+      siteCount: Math.max(1, coerceInt(byId("siteCount")?.value, 1)),
       region,
       volume: shipToVolume,
       zEnhancements,
@@ -284,9 +293,9 @@ async function estimateNewCarrier() {
 }
 
 function estimateRollout() {
-  const siteCount = document.getElementById("siteCount")?.value;
-  const region    = document.getElementById("shipToRegion")?.value;
-  const blueprint = document.getElementById("blueprintNeeded")?.value;
+  const siteCount = byId("siteCount")?.value;
+  const region    = byId("shipToRegion")?.value;
+  const blueprint = byId("blueprintNeeded")?.value;
   if (blueprint === "No")
     return normalizeEstimate({ total:"Blueprint required (16 hours)", breakdown:{ Note:"A 16 hours Blueprint/Workshop would be required" } });
 
@@ -296,11 +305,11 @@ function estimateRollout() {
 }
 
 function estimateUpgrade() {
-  const v = document.getElementById("shiperpVersionUpgrade")?.value;
-  const z = document.getElementById("zenhancementsUpgrade")?.value;
-  const c = document.getElementById("onlineCarrierCountUpgrade")?.value;
-  const e = document.getElementById("ewmUsageUpgrade")?.value;
-  const m = Array.from(document.getElementById("modulesUsedUpgrade")?.selectedOptions||[]).map(el=>el.value);
+  const v = byId("shiperpVersionUpgrade")?.value;
+  const z = byId("zenhancementsUpgrade")?.value;
+  const c = byId("onlineCarrierCountUpgrade")?.value;
+  const e = byId("ewmUsageUpgrade")?.value;
+  const m = Array.from(byId("modulesUsedUpgrade")?.selectedOptions||[]).map(el=>el.value);
 
   const wV = v==="Between 3.6 and 3.9" ? 15 : v==="Lower than 3.6" ? 25 : 0;
   const wZ = ({ "1 to 10":15, "10 to 50":60, "50 to 100":100, "More than 100":150 }[z]) || 0;
@@ -324,13 +333,13 @@ function estimateUpgrade() {
 }
 
 async function estimateOther() {
-  const ecc = parseFloat(document.getElementById("ecc_version")?.value);
-  const ewm = parseFloat(document.getElementById("ewm_version")?.value);
-  const enh = parseInt(document.getElementById("enhancements")?.value || "0", 10);
-  const tcs = document.getElementById("test_cases")?.value;
-  const rat = document.getElementById("rating")?.value;
-  const cor = parseFloat(document.getElementById("corrections")?.value || "0");
-  const cfg = parseFloat(document.getElementById("configuration")?.value || "0");
+  const ecc = parseFloat(byId("ecc_version")?.value);
+  const ewm = parseFloat(byId("ewm_version")?.value);
+  const enh = parseInt(byId("enhancements")?.value || "0", 10);
+  const tcs = byId("test_cases")?.value;
+  const rat = byId("rating")?.value;
+  const cor = parseFloat(byId("corrections")?.value || "0");
+  const cfg = parseFloat(byId("configuration")?.value || "0");
 
   const payload = { ecc_version:ecc, ewm_version:ewm, enhancements:enh, test_cases:tcs, customer_rating:rat, corrections:cor, configuration:cfg };
   try {
@@ -347,7 +356,7 @@ async function estimateOther() {
   }
 }
 
-// ================================================================
+// ======================================================================
 // Main entry point
 window.submitCustomerForm = async function (formType) {
   const fields = collectFormFields();

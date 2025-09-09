@@ -1,8 +1,8 @@
-// script_customer.js — JSON email (compact) with clean estimation breakdown
+// script_customer.js — JSON email (compact) with estimation breakdown
 // ================================================================
 // EmailJS config (replace with your real values)
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // EmailJS template body: <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // EmailJS template: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com"; // recipient
 
@@ -44,24 +44,60 @@ function mapZEnhancementsToInt(label) {
 }
 function coerceInt(v, d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
 
-// Local heuristic so the email NEVER shows “N/A” if the API rejects
-function newCarrierLocalHeuristic({ featuresCount=0, siteCount=1, region="US", volume=0 }) {
+// ================================================================
+// Local fallback (so email NEVER shows “N/A” if the API rejects)
+// Includes Z-enhancements effect (this was the missing piece)
+function newCarrierLocalHeuristic({ featuresCount=0, siteCount=1, region="US", volume=0, zEnhancements=0, alreadyUsed="No" }) {
   let hours = 24; // baseline
-  hours += Math.min(featuresCount * 4, 20);
-  hours += Math.min((siteCount-1) * 3, 30);
-  if (volume >= 5000)  hours += 6;
-  if (volume >= 20000) hours += 8;   // cumulative
-  if (volume >= 50000) hours += 10;
-  if (region !== "US") hours += 6;   // non-US coordination
+
+  // Features contribution (cap to avoid runaway)
+  const hFeatures = Math.min(featuresCount * 4, 20);
+  hours += hFeatures;
+
+  // Sites contribution (if you later add a site field)
+  const hSites = Math.min(Math.max(0, siteCount - 1) * 3, 30);
+  hours += hSites;
+
+  // Volume thresholds (cumulative)
+  let hVolume = 0;
+  if (volume >= 5000)  hVolume += 6;
+  if (volume >= 20000) hVolume += 8;
+  if (volume >= 50000) hVolume += 10;
+  hours += hVolume;
+
+  // Region (non-US coordination)
+  const hRegion = (region && region.toUpperCase() !== "US") ? 6 : 0;
+  hours += hRegion;
+
+  // >>> Z-enhancements bump (new)
+  // Calibrated so that changing the bucket changes the estimate noticeably
+  let hZenh = 0;
+  if (zEnhancements <= 10)       hZenh = 2;
+  else if (zEnhancements <= 50)  hZenh = 8;
+  else if (zEnhancements <= 100) hZenh = 18;
+  else                           hZenh = 32;
+  hours += hZenh;
+
+  // If the carrier already exists elsewhere, small reduction
+  const hReuse = (String(alreadyUsed).toLowerCase() === "yes") ? -4 : 0;
+  hours += hReuse;
+
+  hours = Math.max(8, Math.round(hours)); // clamp to sane minimum
   const rate = 180;
   const cost = Math.round(hours * rate);
-  return { hours, rate, cost, breakdown: [
-    { label: "Baseline", hours: 24 },
-    { label: "Features", hours: Math.min(featuresCount * 4, 20), note: `${featuresCount} selected` },
-    { label: "Sites (extra)", hours: Math.min((siteCount-1) * 3, 30), note: `${siteCount} site(s)` },
-    { label: "Volume adj.", hours: (hours - 24 - Math.min(featuresCount*4,20) - Math.min((siteCount-1)*3,30)) || 0 },
-    { label: "Region adj.", hours: region !== "US" ? 6 : 0 }
-  ]};
+
+  return {
+    hours, rate, cost,
+    breakdown: [
+      { label: "Baseline",        hours: 24 },
+      { label: "Features",        hours: hFeatures, note: `${featuresCount} selected` },
+      { label: "Sites (extra)",   hours: hSites,    note: `${siteCount} site(s)` },
+      { label: "Volume adj.",     hours: hVolume,   note: `${volume} / day` },
+      { label: "Region adj.",     hours: hRegion,   note: region || "US" },
+      { label: "Z-enhancements",  hours: hZenh,     note: `${zEnhancements}` },
+      { label: "Reuse (if any)",  hours: hReuse }
+    ]
+  };
 }
 
 function normalizeEstimate(estRaw) {
@@ -185,12 +221,15 @@ async function estimateNewCarrier() {
     document.getElementById("transactions")?.value || 0; // use if present
   const shipToVolume = coerceInt(volumeCandidate, 1000); // default > 0 to pass validation
 
+  const alreadyUsed = document.getElementById("alreadyUsed")?.value || "No";
+  const region = document.getElementById("shipToRegion")?.value || "US";
+
   const payload = {
     clientName:      document.getElementById("clientName")?.value || "",
     email:           document.getElementById("email")?.value || "",
     carrierName:     document.getElementById("carrierName")?.value || "",
     carrierOther:    document.getElementById("carrierOther")?.value || "",
-    alreadyUsed:     document.getElementById("alreadyUsed")?.value || "",
+    alreadyUsed,
     zEnhancements, // integer
     onlineOrOffline: document.getElementById("onlineOrOffline")?.value || "",
     features,
@@ -222,20 +261,24 @@ async function estimateNewCarrier() {
         cost: Number(json.total_effort) ? Math.round(Number(json.total_effort) * 180) : null
       });
     }
-    // Unexpected response -> fallback
+    // Unexpected response -> fallback (includes zEnhancements)
     return normalizeEstimate(newCarrierLocalHeuristic({
       featuresCount: features.length,
       siteCount: Math.max(1, coerceInt(document.getElementById("siteCount")?.value, 1)),
-      region: (document.getElementById("shipToRegion")?.value || "US"),
-      volume: shipToVolume
+      region,
+      volume: shipToVolume,
+      zEnhancements,
+      alreadyUsed
     }));
   } catch(e) {
-    // Network/validation error -> fallback
+    // Network/validation error -> fallback (includes zEnhancements)
     return normalizeEstimate(newCarrierLocalHeuristic({
       featuresCount: features.length,
       siteCount: Math.max(1, coerceInt(document.getElementById("siteCount")?.value, 1)),
-      region: (document.getElementById("shipToRegion")?.value || "US"),
-      volume: shipToVolume
+      region,
+      volume: shipToVolume,
+      zEnhancements,
+      alreadyUsed
     }));
   }
 }
@@ -305,7 +348,7 @@ async function estimateOther() {
 }
 
 // ================================================================
-// Main entry point (wired to your button onclick)
+// Main entry point
 window.submitCustomerForm = async function (formType) {
   const fields = collectFormFields();
 
@@ -331,7 +374,6 @@ window.submitCustomerForm = async function (formType) {
           to_email: TO_EMAIL,
           reply_to: fields["Your email address"] || fields["email"] || "",
           message_html: messageHtml,
-          // Optional: extra fields if you want to use them in your EmailJS template
           estimate_total: estNorm.totalStr || (estNorm.hours!=null ? `${estNorm.hours} h` : "N/A"),
           estimate_hours: String(estNorm.hours ?? ""),
           estimate_cost:  String(estNorm.cost ?? ""),

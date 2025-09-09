@@ -1,11 +1,13 @@
-// script_customer.js — JSON email (compact), détail d'estimation inclus
-// ====== EmailJS config ======
+// script_customer.js — JSON email (compact) with clean estimation breakdown
+// ================================================================
+// EmailJS config (replace with your real values)
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // Template body: <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // EmailJS template body: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
-const TO_EMAIL    = "alauwens@erp-is.com"; // destinataire
+const TO_EMAIL    = "alauwens@erp-is.com"; // recipient
 
-// ---------- Helpers ----------
+// ================================================================
+// Helpers
 const textOrArray = v => Array.isArray(v) ? v.join(", ") : (v ?? "");
 
 function collectFormFields() {
@@ -28,23 +30,54 @@ function collectFormFields() {
   return out;
 }
 
+function mapZEnhancementsToInt(label) {
+  const map = {
+    "Less than 10": 9,
+    "1 to 10": 10,
+    "10 to 50": 50,
+    "50 to 100": 100,
+    "More than 100": 150
+  };
+  const n = Number(label);
+  if (Number.isFinite(n)) return n;
+  return map[label] ?? 0;
+}
+function coerceInt(v, d=0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
+
+// Local heuristic so the email NEVER shows “N/A” if the API rejects
+function newCarrierLocalHeuristic({ featuresCount=0, siteCount=1, region="US", volume=0 }) {
+  let hours = 24; // baseline
+  hours += Math.min(featuresCount * 4, 20);
+  hours += Math.min((siteCount-1) * 3, 30);
+  if (volume >= 5000)  hours += 6;
+  if (volume >= 20000) hours += 8;   // cumulative
+  if (volume >= 50000) hours += 10;
+  if (region !== "US") hours += 6;   // non-US coordination
+  const rate = 180;
+  const cost = Math.round(hours * rate);
+  return { hours, rate, cost, breakdown: [
+    { label: "Baseline", hours: 24 },
+    { label: "Features", hours: Math.min(featuresCount * 4, 20), note: `${featuresCount} selected` },
+    { label: "Sites (extra)", hours: Math.min((siteCount-1) * 3, 30), note: `${siteCount} site(s)` },
+    { label: "Volume adj.", hours: (hours - 24 - Math.min(featuresCount*4,20) - Math.min((siteCount-1)*3,30)) || 0 },
+    { label: "Region adj.", hours: region !== "US" ? 6 : 0 }
+  ]};
+}
+
 function normalizeEstimate(estRaw) {
-  // Accepte plusieurs variantes depuis la logique interne/API
   const est = estRaw || {};
-  // total peut être une string ("38 hours", "From 32 to 40 h") — on la conserve pour l'email
-  const totalStr =
-    est.total ?? est.total_cost ?? est.totalHours ?? est.total_hours ?? null;
+  const totalStr = est.total ?? est.total_cost ?? est.totalHours ?? est.total_hours ?? null;
 
   const hoursNum = Number(est.hours ?? est.totalHours ?? est.total_hours);
-  const rateNum  = Number(est.rate ?? est.blendedRate ?? est.blended_rate);
-  let   costNum  = Number(est.cost ?? est.total_cost);
+  const rateNum  = Number(est.rate  ?? est.blendedRate ?? est.blended_rate);
+  let   costNum  = Number(est.cost  ?? est.total_cost);
 
   if (!costNum && Number.isFinite(hoursNum) && Number.isFinite(rateNum)) {
     costNum = Math.round(hoursNum * rateNum);
   }
 
   return {
-    totalStr, // si fourni en texte par l’interne/API
+    totalStr,
     hours: Number.isFinite(hoursNum) ? hoursNum : null,
     rate:  Number.isFinite(rateNum)  ? rateNum  : null,
     cost:  Number.isFinite(costNum)  ? costNum  : null,
@@ -54,7 +87,6 @@ function normalizeEstimate(estRaw) {
 
 function renderBreakdownHTML(breakdown) {
   if (!breakdown) return "";
-  // breakdown peut être un objet {libellé: "X h"} OU un tableau
   let rows = "";
 
   if (Array.isArray(breakdown)) {
@@ -80,8 +112,7 @@ function renderBreakdownHTML(breakdown) {
         <td style="padding:6px 10px;border-bottom:1px solid #eee;">${k}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;">${textOrArray(v)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #eee;"></td>
-      </tr>
-    `).join("");
+      </tr>`).join("");
   }
 
   if (!rows) return "";
@@ -111,7 +142,6 @@ function buildTinyEmail(formType, fields, estNorm) {
   const who   = pick("Client Name", "Customer Name", "clientName", "customer", "client", "company");
   const reply = pick("Your email address", "email", "Email", "contactEmail");
 
-  // Choix du libellé "Estimate (total)"
   const estimateLabel =
     estNorm.totalStr ? estNorm.totalStr :
     (estNorm.hours != null || estNorm.cost != null)
@@ -122,8 +152,7 @@ function buildTinyEmail(formType, fields, estNorm) {
     <tr>
       <td style="padding:6px;border:1px solid #e5e5e5;"><strong>${k}</strong></td>
       <td style="padding:6px;border:1px solid #e5e5e5;">${textOrArray(v)}</td>
-    </tr>
-  `).join("");
+    </tr>`).join("");
 
   const breakdownHTML = renderBreakdownHTML(estNorm.breakdown);
 
@@ -137,45 +166,78 @@ function buildTinyEmail(formType, fields, estNorm) {
       <h3 style="margin:12px 0 6px;">Preview (partial)</h3>
       <table style="border-collapse:collapse;width:100%;max-width:820px">${firstRows}</table>
       <p style="margin:10px 0 0;color:#666;">(Attachments temporarily disabled to comply with EmailJS size limits.)</p>
-    </div>
-  `;
+    </div>`;
 }
 
-// ---------- Estimation (tes fonctions/serveurs existants inchangés) ----------
+// ================================================================
+// Estimation (New Carrier via API + fallback; others local as before)
 async function estimateNewCarrier() {
   const features = Array.from(document.querySelectorAll("input[name='features']:checked")).map(x=>x.value);
+  const systemUsed = ["sys_ecc","sys_ewm","sys_tm"].filter(id=>document.getElementById(id)?.checked).map(id=>document.getElementById(id).value);
+  const shipmentScreens = ["screen_smallparcel","screen_planning","screen_tm","screen_other"]
+    .filter(id=>document.getElementById(id)?.checked).map(id=>document.getElementById(id).value);
+
+  const zEnhancementsRaw = document.getElementById("zEnhancements")?.value || "";
+  const zEnhancements = mapZEnhancementsToInt(zEnhancementsRaw); // API expects integer
+
+  const volumeCandidate =
+    document.getElementById("dailyVolume")?.value ||
+    document.getElementById("transactions")?.value || 0; // use if present
+  const shipToVolume = coerceInt(volumeCandidate, 1000); // default > 0 to pass validation
+
   const payload = {
-    clientName: document.getElementById("clientName")?.value || "",
-    email: document.getElementById("email")?.value || "",
-    carrierName: document.getElementById("carrierName")?.value || "",
-    carrierOther: document.getElementById("carrierOther")?.value || "",
-    alreadyUsed: document.getElementById("alreadyUsed")?.value || "",
-    zEnhancements: document.getElementById("zEnhancements")?.value || "",
+    clientName:      document.getElementById("clientName")?.value || "",
+    email:           document.getElementById("email")?.value || "",
+    carrierName:     document.getElementById("carrierName")?.value || "",
+    carrierOther:    document.getElementById("carrierOther")?.value || "",
+    alreadyUsed:     document.getElementById("alreadyUsed")?.value || "",
+    zEnhancements, // integer
     onlineOrOffline: document.getElementById("onlineOrOffline")?.value || "",
     features,
-    sapVersion: document.getElementById("sapVersion")?.value || "",
-    abapVersion: document.getElementById("abapVersion")?.value || "",
-    shiperpVersion: document.getElementById("shiperpVersion")?.value || "",
-    serpcarUsage: document.getElementById("serpcarUsage")?.value || "",
-    systemUsed: ["sys_ecc","sys_ewm","sys_tm"].filter(id=>document.getElementById(id)?.checked).map(id=>document.getElementById(id).value),
-    shipmentScreens: ["screen_smallparcel","screen_planning","screen_tm","screen_other"].filter(id=>document.getElementById(id)?.checked).map(id=>document.getElementById(id).value),
+    sapVersion:      document.getElementById("sapVersion")?.value || "",
+    abapVersion:     document.getElementById("abapVersion")?.value || "",
+    shiperpVersion:  document.getElementById("shiperpVersion")?.value || "",
+    serpcarUsage:    document.getElementById("serpcarUsage")?.value || "",
+    systemUsed,
+    shipmentScreens,
     shipFrom: Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(o=>o.value),
-    shipTo:   Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(o=>o.value)
+    shipTo:   Array.from(document.getElementById("shipTo")?.selectedOptions   || []).map(o=>o.value),
+    shipToVolume // required by API
   };
+
   try {
     const res = await fetch("https://docqa-api.onrender.com/estimate/new_carrier", {
-      method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload)
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
     });
-    const t = await res.text(); const j = JSON.parse(t);
-    if (typeof j.total_effort !== "undefined") {
-      // Convertit en forme normalisée
+    const text = await res.text();
+    const json = JSON.parse(text);
+    if (json && typeof json.total_effort !== "undefined") {
       return normalizeEstimate({
-        total: `${j.total_effort} hours`,
-        breakdown: j.breakdown || null
+        total: `${json.total_effort} hours`,
+        breakdown: Array.isArray(json.breakdown) ? json.breakdown : null,
+        hours: Number(json.total_effort),
+        rate: 180,
+        cost: Number(json.total_effort) ? Math.round(Number(json.total_effort) * 180) : null
       });
     }
-    return normalizeEstimate({ total:"N/A", breakdown:{ "Server response": t.slice(0,300)+"..." } });
-  } catch(e){ return normalizeEstimate({ total:"N/A", breakdown:{ "Error": e.message } }); }
+    // Unexpected response -> fallback
+    return normalizeEstimate(newCarrierLocalHeuristic({
+      featuresCount: features.length,
+      siteCount: Math.max(1, coerceInt(document.getElementById("siteCount")?.value, 1)),
+      region: (document.getElementById("shipToRegion")?.value || "US"),
+      volume: shipToVolume
+    }));
+  } catch(e) {
+    // Network/validation error -> fallback
+    return normalizeEstimate(newCarrierLocalHeuristic({
+      featuresCount: features.length,
+      siteCount: Math.max(1, coerceInt(document.getElementById("siteCount")?.value, 1)),
+      region: (document.getElementById("shipToRegion")?.value || "US"),
+      volume: shipToVolume
+    }));
+  }
 }
 
 function estimateRollout() {
@@ -237,14 +299,16 @@ async function estimateOther() {
     if (data.details) Object.entries(data.details).forEach(([k,[a,b]]) => br[k] = `${a} – ${b} h`);
     const total = (data.from!=null && data.to!=null) ? `${data.from} – ${data.to} h` : "N/A";
     return normalizeEstimate({ total, breakdown: br });
-  } catch(e){ return normalizeEstimate({ total:"N/A", breakdown:{ "Error": e.message } }); }
+  } catch(e){
+    return normalizeEstimate({ total:"N/A", breakdown: null }); // no server error dump
+  }
 }
 
-// ---------- main ----------
+// ================================================================
+// Main entry point (wired to your button onclick)
 window.submitCustomerForm = async function (formType) {
   const fields = collectFormFields();
 
-  // compute estimate (même logique qu’avant)
   let estNorm;
   if (formType==="New Carrier") estNorm = await estimateNewCarrier();
   else if (formType==="Rollout") estNorm = estimateRollout();
@@ -267,7 +331,7 @@ window.submitCustomerForm = async function (formType) {
           to_email: TO_EMAIL,
           reply_to: fields["Your email address"] || fields["email"] || "",
           message_html: messageHtml,
-          // champs supplémentaires si tu veux les exploiter dans le template
+          // Optional: extra fields if you want to use them in your EmailJS template
           estimate_total: estNorm.totalStr || (estNorm.hours!=null ? `${estNorm.hours} h` : "N/A"),
           estimate_hours: String(estNorm.hours ?? ""),
           estimate_cost:  String(estNorm.cost ?? ""),

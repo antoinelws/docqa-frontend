@@ -1,18 +1,17 @@
-// script_customer.js — New Carrier parity lock + EmailJS + full tracing
-// - Forces /estimate/new_carrier payload to a strict internal-like baseline (when PARITY_LOCK=true)
-// - Logs outgoing payload + backend raw response so you can verify 1:1
-// - Keeps Rollout/Upgrade/Other via internal capture (unchanged)
+// script_customer.js — Use internal calculator end-to-end (fetch intercept) + EmailJS
 
+/* ===== EmailJS config ===== */
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // Body: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com";
 
-const SOW_DEBUG   = true;   // KEEP true until parity is confirmed
-const PARITY_LOCK = true;   // <<< TURN ON to force internal baseline payload (gives 24 / 56). Turn off afterward.
+/* ===== Debug ===== */
+const SOW_DEBUG   = true;    // keep true until you confirm parity
+const NC_ENDPOINT = /\/estimate\/new_carrier$/i;
 
-const $id = (x) => document.getElementById(x);
-const textOrArray = (v) => Array.isArray(v) ? v.join(", ") : (v ?? "");
+/* ===== Small helpers ===== */
+const textOrArray = v => Array.isArray(v) ? v.join(", ") : (v ?? "");
 
 function collectFormFields() {
   const inputs = document.querySelectorAll("input, select, textarea");
@@ -24,7 +23,7 @@ function collectFormFields() {
       el.name || el.id;
     if (!key) return;
     if (el.type === "checkbox") {
-      if (el.checked) { (out[key] ||= []).push(el.value); }
+      if (el.checked) (out[key] ||= []).push(el.value);
     } else if (el.multiple) {
       out[key] = Array.from(el.selectedOptions).map(o => o.value);
     } else {
@@ -61,97 +60,39 @@ function buildEmailHTML(formType, fields, estimateText) {
   `;
 }
 
-/* ========== NEW CARRIER — strict internal-like payload ========== */
-function buildNewCarrierPayload() {
-  // take visible choices from CUSTOMER DOM
-  const featuresCustomer =
-    Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value)
-    .concat(Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value));
-
-  const systemUsedCustomer = ["sys_ecc","sys_ewm","sys_tm"]
-    .filter(id => $id(id)?.checked)
-    .map(id => $id(id).value);
-
-  const shipmentScreensCustomer = ["screen_smallparcel","screen_planning","screen_tm","screen_other"]
-    .filter(id => $id(id)?.checked)
-    .map(id => $id(id).value);
-
-  const zSel = $id("zEnhancements") || document.querySelector("[name='zEnhancements']");
-  const zRaw = String(zSel?.value ?? "").trim(); // EXACT raw label (ex: "Less than 10")
-  const zInt = Number(zRaw);
-  const zEnhancements = Number.isFinite(zInt) ? zInt : (
-    { "Less than 10":9, "Between 10 and 50":50, "More than 50":100, "I'm not sure":0 }[zRaw] ?? 0
-  );
-
-  // ---------- PARITY LOCK: force baselines that often drift ----------
-  const alreadyUsed      = PARITY_LOCK ? "No"     : ($id("alreadyUsed")?.value || "");
-  const onlineOrOffline  = PARITY_LOCK ? "Online" : ($id("onlineOrOffline")?.value || "");
-  const serpcarUsage     = PARITY_LOCK ? "No"     : ($id("serpcarUsage")?.value || "");
-
-  const features         = PARITY_LOCK ? [] : featuresCustomer;
-  const systemUsed       = PARITY_LOCK ? [] : systemUsedCustomer;
-  const shipmentScreens  = PARITY_LOCK ? [] : shipmentScreensCustomer;
-
-  const shipFrom         = PARITY_LOCK ? [] : Array.from($id("shipFrom")?.selectedOptions || []).map(o => o.value);
-  const shipTo           = PARITY_LOCK ? [] : Array.from($id("shipTo")?.selectedOptions   || []).map(o => o.value);
-
-  const payload = {
-    clientName: $id("clientName")?.value || "",
-    featureInterest: $id("featureInterest")?.value || "",
-    email: $id("email")?.value || "",
-    carrierName: $id("carrierName")?.value || "",
-    carrierOther: $id("carrierOther")?.value || "",
-    alreadyUsed,
-    zEnhancements,
-    onlineOrOffline,
-    features,
-    sapVersion: $id("sapVersion")?.value || "",
-    abapVersion: $id("abapVersion")?.value || "",
-    shiperpVersion: $id("shiperpVersion")?.value || "",
-    serpcarUsage,
-    systemUsed,
-    shipmentScreens,
-    shipFrom,
-    shipTo,
-    shipToVolume: zRaw,                               // EXACT like internal (raw label)
-    shipmentScreenString: shipmentScreens.join(", ")  // same concat as internal
-  };
-
-  if (SOW_DEBUG) console.log("[SOW] NewCarrier payload (customer)", payload);
-  return payload;
-}
-
-async function callNewCarrierAPI(payload) {
-  const res = await fetch("https://docqa-api.onrender.com/estimate/new_carrier", {
-    method: "POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
-  });
-  const raw = await res.text();
-  let json = null; try { json = JSON.parse(raw); } catch {}
-  if (SOW_DEBUG) console.log("[SOW] NewCarrier API raw:", raw, "parsed:", json);
-  const hours = (json && typeof json.total_effort !== "undefined") ? Number(json.total_effort) : null;
-  return Number.isFinite(hours) ? `${hours} hours` : "N/A";
-}
-
-/* ========== Capture internal (Rollout/Upgrade/Other) ========== */
-function callIfExists(names) { for (const n of names) { const f = window[n]; if (typeof f === "function") return f; } return null; }
-async function captureInternalEstimate(invoke) {
+/* ===== displayResult capture (secondary source of truth) ===== */
+function captureDisplayResultOnce(invoke) {
   return new Promise((resolve) => {
     const original = window.displayResult;
-    let settled = false, captured = null;
-    window.displayResult = function (message) {
-      try { captured = (typeof message === "string") ? message : String(message ?? ""); } catch {}
-      if (!settled) { settled = true; window.displayResult = original; resolve(captured); }
+    let settled = false;
+    window.displayResult = function (msg) {
+      const s = (typeof msg === "string") ? msg : String(msg ?? "");
+      if (SOW_DEBUG) console.log("[SOW] displayResult intercepted:", s);
+      if (!settled) {
+        settled = true;
+        window.displayResult = original;
+        resolve(s);
+      }
     };
     try {
       invoke();
-      setTimeout(() => { if (!settled) { settled = true; window.displayResult = original; resolve(null); } }, 15000);
+      setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          window.displayResult = original;
+          resolve(null);
+        }
+      }, 15000);
     } catch {
-      if (!settled) { settled = true; window.displayResult = original; resolve(null); }
+      if (!settled) {
+        settled = true;
+        window.displayResult = original;
+        resolve(null);
+      }
     }
   });
 }
+
 function parseEstimateText(rawText) {
   if (!rawText) return null;
   const reHours = /Estimated\s*Effort:\s*([0-9]+)\s*hours?/i;
@@ -161,34 +102,113 @@ function parseEstimateText(rawText) {
   return null;
 }
 
-/* ========== Router ========== */
+/* ===== fetch intercept around the internal call (primary source of truth) ===== */
+async function runInternalNewCarrierAndIntercept() {
+  // wrap fetch
+  const origFetch = window.fetch;
+  let capturedBody = null;
+  let capturedResponseText = null;
+
+  window.fetch = async function(input, init) {
+    const url = (typeof input === "string") ? input : (input?.url || "");
+    const match = NC_ENDPOINT.test(url);
+    if (match) {
+      try {
+        capturedBody = init?.body ? JSON.parse(init.body) : null;
+        if (SOW_DEBUG) console.log("[SOW][NC] captured request body:", capturedBody);
+      } catch (e) {
+        if (SOW_DEBUG) console.warn("[SOW][NC] body parse error:", e);
+      }
+    }
+    const res = await origFetch.apply(this, arguments);
+    if (match) {
+      try {
+        const clone = res.clone();
+        capturedResponseText = await clone.text();
+        if (SOW_DEBUG) console.log("[SOW][NC] captured raw response:", capturedResponseText);
+      } catch (e) {
+        if (SOW_DEBUG) console.warn("[SOW][NC] response read error:", e);
+      }
+    }
+    return res;
+  };
+
+  // call the same internal entry your internal page uses
+  // (we try common names; add more if your internal uses a different one)
+  const internalFns = [
+    "submitEstimateNewCarrier",
+    "calculateNewCarrier",
+    "estimateNewCarrier",
+    "submitEstimate" // many builds use this generic name
+  ];
+  const fn = internalFns.map(n => window[n]).find(f => typeof f === "function");
+  if (!fn) {
+    // restore fetch before throwing
+    window.fetch = origFetch;
+    throw new Error("Internal New Carrier function not found. Make sure internal scripts are loaded before script_customer.js");
+  }
+
+  // we also keep displayResult as a backup
+  const drPromise = captureDisplayResultOnce(() => fn());
+
+  // wait a little for network + displayResult
+  const waitFor = async () => {
+    const start = Date.now();
+    while (Date.now() - start < 15000) {
+      if (capturedResponseText) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+  };
+  await waitFor();
+
+  // restore fetch
+  window.fetch = origFetch;
+
+  // prefer response JSON → total_effort
+  let hoursText = null;
+  if (capturedResponseText) {
+    try {
+      const j = JSON.parse(capturedResponseText);
+      if (typeof j.total_effort !== "undefined") hoursText = `${j.total_effort} hours`;
+    } catch {}
+  }
+
+  // else, try displayResult
+  if (!hoursText) {
+    const drText = await drPromise;
+    hoursText = parseEstimateText(drText) || "N/A";
+  }
+
+  // show the captured payload/response for parity debugging
+  if (SOW_DEBUG) {
+    console.log("[SOW][NC] FINAL hoursText:", hoursText);
+    console.log("[SOW][NC] FINAL request payload used by internal:", capturedBody);
+  }
+
+  return hoursText || "N/A";
+}
+
+/* ===== Router ===== */
 async function computeEstimateText(formType) {
   const t = String(formType||"").toLowerCase();
 
-  // NEW CARRIER — always use strict payload (with optional parity lock)
   if (t.includes("new") && t.includes("carrier")) {
-    const payload = buildNewCarrierPayload();
-    return await callNewCarrierAPI(payload);
+    // PRIMARY: run internal path and intercept the real request/response
+    return await runInternalNewCarrierAndIntercept();
   }
 
-  // Others — use internal calculators if present
-  let fn = null;
-  if (t.includes("rollout")) {
-    fn = callIfExists(["submitEstimateRollout","calculateRollout","estimateRollout","submitEstimate"]);
-  } else if (t.includes("upgrade")) {
-    fn = callIfExists(["submitEstimateUpgrade","calculateUpgrade","estimateUpgrade","submitEstimate"]);
-  } else {
-    fn = callIfExists(["submitEstimateOther","calculateOther","estimateOther","submitEstimate"]);
-  }
-  if (fn) {
-    const raw = await captureInternalEstimate(() => fn());
-    const parsed = parseEstimateText(raw);
-    return parsed || "N/A";
-  }
-  return "N/A";
+  // For other types, reuse the internal displayResult path (no fetch intercept needed)
+  const map = t.includes("rollout") ? ["submitEstimateRollout","calculateRollout","estimateRollout","submitEstimate"]
+           : t.includes("upgrade") ? ["submitEstimateUpgrade","calculateUpgrade","estimateUpgrade","submitEstimate"]
+           :                         ["submitEstimateOther","calculateOther","estimateOther","submitEstimate"];
+
+  const fn = map.map(n => window[n]).find(f => typeof f === "function");
+  if (!fn) return "N/A";
+  const raw = await captureDisplayResultOnce(() => fn());
+  return parseEstimateText(raw) || "N/A";
 }
 
-/* ========== EmailJS ========== */
+/* ===== EmailJS ===== */
 async function sendEmailJS({subject, html, replyTo}) {
   const payload = {
     service_id: SERVICE_ID,
@@ -203,21 +223,20 @@ async function sendEmailJS({subject, html, replyTo}) {
   };
   if (SOW_DEBUG) console.log("[SOW] EmailJS payload:", payload);
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method: "POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error(await res.text());
 }
 
-/* ========== Button entry ========== */
+/* ===== Button entry ===== */
 window.submitCustomerForm = async function (formType) {
   const fields = collectFormFields();
+
   let estimateText = "N/A";
   try {
     estimateText = await computeEstimateText(formType);
   } catch (e) {
-    if (SOW_DEBUG) console.error("[SOW] compute failed:", e);
+    console.error("[SOW] compute failed:", e);
     estimateText = "N/A";
   }
 

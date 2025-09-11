@@ -14,16 +14,25 @@ function collectOtherForm() {
 }
 
 /* 2) Estimation: identique à ton script (API /sow-estimate) */
+// customer_other.js
 async function estimateOther_INTERNAL(payload) {
-  const res = await fetch("https://docqa-api.onrender.com/sow-estimate", {
+  const url = (await SOWCFG.get())?.api?.otherUrl || "https://docqa-api.onrender.com/sow-estimate";
+
+  const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type":"application/json" },
     body: JSON.stringify(payload)
   });
-  const data = await res.json();
-  // data.details: { task: [from,to], ... }, data.from, data.to
-  return { total_effort: (data?.from != null && data?.to != null) ? `${data.from}-${data.to}` : null, details: data?.details || null, raw: data };
+
+  const data = await res.json().catch(() => null);
+  if (!data) return { total_effort: null, details: null };
+
+  return {
+    total_effort: (data?.from != null && data?.to != null) ? `${data.from}-${data.to}` : null,
+    details: data?.details || null
+  };
 }
+
 
 /* 3) Breakdown (compact) */
 function otherBreakdownHtml(est) {

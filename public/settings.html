@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SOW Settings</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 24px; }
+    textarea { width: 100%; height: 60vh; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .row { display:flex; gap:12px; margin: 12px 0; }
+    button { padding:8px 14px; }
+    .hint { color:#666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>SOW Settings</h1>
+  <p class="hint">Edit JSON below. Changes are stored in <strong>localStorage</strong> for this browser. You can also export/download or import a JSON.</p>
+
+  <div class="row">
+    <input id="pass" type="password" placeholder="Admin passphrase (optional)" />
+    <button id="lockBtn">Lock</button>
+  </div>
+
+  <textarea id="editor"></textarea>
+
+  <div class="row">
+    <button id="loadDefaults">Load defaults</button>
+    <button id="save">Save (local)</button>
+    <button id="download">Download JSON</button>
+    <input id="file" type="file" accept="application/json" />
+  </div>
+
+  <div class="hint">Tip: deploy a JSON somewhere (SharePoint, S3…) and open forms with <code>?config=URL</code> to use that config.</div>
+
+  <script src="config.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

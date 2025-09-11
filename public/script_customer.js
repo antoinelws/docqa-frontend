@@ -1,17 +1,21 @@
-// script_customer.js — Use internal calculator end-to-end (fetch intercept) + EmailJS
+// script_customer.js — Parité 1:1 avec les pages internes (fetch intercept) + EmailJS
+// - Pas de logique dupliquée: on appelle la même fonction interne que vos pages internes
+// - Avant l'appel, on "synchronise" le DOM customer pour refléter ce que l'interne lit (hidden inputs si manquants)
+// - On intercepte le fetch /estimate/* pour lire le payload VRAI et la réponse VRAIE (total_effort) => email identique
 
-/* ===== EmailJS config ===== */
+/* ===== EmailJS ===== */
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // Body: <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // Body du template: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com";
 
 /* ===== Debug ===== */
-const SOW_DEBUG   = true;    // keep true until you confirm parity
+const SOW_DEBUG   = false;             // passe à true pour voir les payloads/retours
 const NC_ENDPOINT = /\/estimate\/new_carrier$/i;
 
-/* ===== Small helpers ===== */
-const textOrArray = v => Array.isArray(v) ? v.join(", ") : (v ?? "");
+/* ===== Helpers ===== */
+const $id = (x) => document.getElementById(x);
+const textOrArray = (v) => Array.isArray(v) ? v.join(", ") : (v ?? "");
 
 function collectFormFields() {
   const inputs = document.querySelectorAll("input, select, textarea");
@@ -23,7 +27,7 @@ function collectFormFields() {
       el.name || el.id;
     if (!key) return;
     if (el.type === "checkbox") {
-      if (el.checked) (out[key] ||= []).push(el.value);
+      if (el.checked) { (out[key] ||= []).push(el.value); }
     } else if (el.multiple) {
       out[key] = Array.from(el.selectedOptions).map(o => o.value);
     } else {
@@ -60,7 +64,76 @@ function buildEmailHTML(formType, fields, estimateText) {
   `;
 }
 
-/* ===== displayResult capture (secondary source of truth) ===== */
+/* ============================================================
+   SYNC DOM POUR PARITÉ (ajoute/remplit les champs que l'interne lit)
+   ============================================================ */
+
+/** New Carrier: s'assure que le DOM customer présente les mêmes signaux que l'interne */
+function syncDomForNewCarrier() {
+  // 1) featureInterest (souvent un <select> côté interne)
+  //    - si absent côté customer, on le crée en hidden
+  //    - valeur = priorité aux cases cochées "features", sinon déduit de l'écran "Small Parcel"
+  let fi = $id("featureInterest");
+  if (!fi) {
+    fi = document.createElement("input");
+    fi.type = "hidden";
+    fi.id   = "featureInterest";
+    document.body.appendChild(fi);
+  }
+  // déduction features -> featureInterest
+  const featuresChecked = Array.from(document.querySelectorAll("input.feature-box:checked, input[name='features']:checked"))
+    .map(el=>String(el.value).trim());
+  const hasShippingLabeling = featuresChecked.includes("Shipping & Labeling");
+
+  const hasSmallParcelScreen =
+    ($id("screen_smallparcel") && $id("screen_smallparcel").checked) ||
+    Array.from(document.querySelectorAll("input[value='Small Parcel Screen']")).some(el => el.checked);
+
+  if (hasShippingLabeling) {
+    fi.value = "Shipping & Labeling";
+  } else if (hasSmallParcelScreen) {
+    // règle interne typique: Small Parcel -> Shipping & Labeling
+    fi.value = "Shipping & Labeling";
+  } else if (featuresChecked.length) {
+    // sinon, prend la 1ère feature cochée
+    fi.value = featuresChecked[0];
+  } else {
+    fi.value = ""; // pas d'inférence si rien n'est choisi
+  }
+
+  // 2) zEnhancements / shipToVolume: l'interne lit souvent la valeur brute du select
+  //    s'il n'y a pas de select numérique, on laisse les libellés ("Less than 10", etc.)
+  const zSel = $id("zEnhancements") || document.querySelector("[name='zEnhancements']");
+  if (!zSel) {
+    // si vraiment absent, on crée un hidden pour éviter un undefined côté interne
+    const z = document.createElement("input");
+    z.type = "hidden"; z.id = "zEnhancements"; z.value = "I'm not sure";
+    document.body.appendChild(z);
+  }
+
+  // 3) resultBox: certaines internes écrivent dedans -> on met un div caché
+  if (!$id("resultBox")) {
+    const rb = document.createElement("div");
+    rb.id = "resultBox";
+    rb.style.cssText = "visibility:hidden;height:0;overflow:hidden;";
+    document.body.appendChild(rb);
+  }
+}
+
+/** (optionnel) Rollout / Upgrade / Other: ajoute juste un resultBox caché */
+function ensureResultBox() {
+  if (!$id("resultBox")) {
+    const rb = document.createElement("div");
+    rb.id = "resultBox";
+    rb.style.cssText = "visibility:hidden;height:0;overflow:hidden;";
+    document.body.appendChild(rb);
+  }
+}
+
+/* ============================================================
+   CAPTURE displayResult (secours) + INTERCEPT FETCH (source fiable)
+   ============================================================ */
+
 function captureDisplayResultOnce(invoke) {
   return new Promise((resolve) => {
     const original = window.displayResult;
@@ -102,9 +175,12 @@ function parseEstimateText(rawText) {
   return null;
 }
 
-/* ===== fetch intercept around the internal call (primary source of truth) ===== */
+/** Exécute la fonction interne et intercepte la requête/réponse réelle (New Carrier) */
 async function runInternalNewCarrierAndIntercept() {
-  // wrap fetch
+  // 0) aligner le DOM customer sur ce que lit l'interne
+  syncDomForNewCarrier();
+
+  // 1) wrap fetch
   const origFetch = window.fetch;
   let capturedBody = null;
   let capturedResponseText = null;
@@ -115,7 +191,7 @@ async function runInternalNewCarrierAndIntercept() {
     if (match) {
       try {
         capturedBody = init?.body ? JSON.parse(init.body) : null;
-        if (SOW_DEBUG) console.log("[SOW][NC] captured request body:", capturedBody);
+        if (SOW_DEBUG) console.log("[SOW][NC] request body:", capturedBody);
       } catch (e) {
         if (SOW_DEBUG) console.warn("[SOW][NC] body parse error:", e);
       }
@@ -125,7 +201,7 @@ async function runInternalNewCarrierAndIntercept() {
       try {
         const clone = res.clone();
         capturedResponseText = await clone.text();
-        if (SOW_DEBUG) console.log("[SOW][NC] captured raw response:", capturedResponseText);
+        if (SOW_DEBUG) console.log("[SOW][NC] raw response:", capturedResponseText);
       } catch (e) {
         if (SOW_DEBUG) console.warn("[SOW][NC] response read error:", e);
       }
@@ -133,82 +209,85 @@ async function runInternalNewCarrierAndIntercept() {
     return res;
   };
 
-  // call the same internal entry your internal page uses
-  // (we try common names; add more if your internal uses a different one)
+  // 2) appeler la même fonction interne que la page interne
   const internalFns = [
     "submitEstimateNewCarrier",
     "calculateNewCarrier",
     "estimateNewCarrier",
-    "submitEstimate" // many builds use this generic name
+    "submitEstimate" // nom générique dans pas mal de builds
   ];
   const fn = internalFns.map(n => window[n]).find(f => typeof f === "function");
   if (!fn) {
-    // restore fetch before throwing
     window.fetch = origFetch;
-    throw new Error("Internal New Carrier function not found. Make sure internal scripts are loaded before script_customer.js");
+    throw new Error("Internal New Carrier function not found. Load script_sow_new_carrier.js before this script.");
   }
 
-  // we also keep displayResult as a backup
+  // on capture aussi displayResult (secours si la réponse n'est pas JSON)
   const drPromise = captureDisplayResultOnce(() => fn());
 
-  // wait a little for network + displayResult
-  const waitFor = async () => {
-    const start = Date.now();
-    while (Date.now() - start < 15000) {
-      if (capturedResponseText) break;
-      await new Promise(r => setTimeout(r, 100));
-    }
-  };
-  await waitFor();
+  // 3) attendre la réponse
+  const start = Date.now();
+  while (!capturedResponseText && Date.now() - start < 15000) {
+    await new Promise(r => setTimeout(r, 100));
+  }
 
-  // restore fetch
+  // 4) restore fetch
   window.fetch = origFetch;
 
-  // prefer response JSON → total_effort
+  // 5) préférer total_effort depuis la réponse JSON
   let hoursText = null;
   if (capturedResponseText) {
     try {
       const j = JSON.parse(capturedResponseText);
       if (typeof j.total_effort !== "undefined") hoursText = `${j.total_effort} hours`;
+      if (SOW_DEBUG) console.log("[SOW][NC] parsed:", j);
     } catch {}
   }
 
-  // else, try displayResult
+  // sinon, fallback displayResult intercepté
   if (!hoursText) {
     const drText = await drPromise;
     hoursText = parseEstimateText(drText) || "N/A";
   }
 
-  // show the captured payload/response for parity debugging
   if (SOW_DEBUG) {
     console.log("[SOW][NC] FINAL hoursText:", hoursText);
-    console.log("[SOW][NC] FINAL request payload used by internal:", capturedBody);
+    console.log("[SOW][NC] FINAL request body (seen by backend):", capturedBody);
   }
 
   return hoursText || "N/A";
 }
 
-/* ===== Router ===== */
-async function computeEstimateText(formType) {
+/** Rollout/Upgrade/Other: réutiliser l'interne (displayResult) */
+async function runInternalByTypeAndCapture(formType) {
+  ensureResultBox();
   const t = String(formType||"").toLowerCase();
+  const candidates =
+    t.includes("rollout") ? ["submitEstimateRollout","calculateRollout","estimateRollout","submitEstimate"] :
+    t.includes("upgrade") ? ["submitEstimateUpgrade","calculateUpgrade","estimateUpgrade","submitEstimate"] :
+                            ["submitEstimateOther","calculateOther","estimateOther","submitEstimate"];
 
-  if (t.includes("new") && t.includes("carrier")) {
-    // PRIMARY: run internal path and intercept the real request/response
-    return await runInternalNewCarrierAndIntercept();
-  }
-
-  // For other types, reuse the internal displayResult path (no fetch intercept needed)
-  const map = t.includes("rollout") ? ["submitEstimateRollout","calculateRollout","estimateRollout","submitEstimate"]
-           : t.includes("upgrade") ? ["submitEstimateUpgrade","calculateUpgrade","estimateUpgrade","submitEstimate"]
-           :                         ["submitEstimateOther","calculateOther","estimateOther","submitEstimate"];
-
-  const fn = map.map(n => window[n]).find(f => typeof f === "function");
+  const fn = candidates.map(n => window[n]).find(f => typeof f === "function");
   if (!fn) return "N/A";
   const raw = await captureDisplayResultOnce(() => fn());
   return parseEstimateText(raw) || "N/A";
 }
 
-/* ===== EmailJS ===== */
+/* ============================================================
+   Router calcul
+   ============================================================ */
+async function computeEstimateText(formType) {
+  const t = String(formType||"").toLowerCase();
+
+  if (t.includes("new") && t.includes("carrier")) {
+    return await runInternalNewCarrierAndIntercept();
+  }
+  return await runInternalByTypeAndCapture(formType);
+}
+
+/* ============================================================
+   EmailJS
+   ============================================================ */
 async function sendEmailJS({subject, html, replyTo}) {
   const payload = {
     service_id: SERVICE_ID,
@@ -228,7 +307,9 @@ async function sendEmailJS({subject, html, replyTo}) {
   if (!res.ok) throw new Error(await res.text());
 }
 
-/* ===== Button entry ===== */
+/* ============================================================
+   Entrée bouton
+   ============================================================ */
 window.submitCustomerForm = async function (formType) {
   const fields = collectFormFields();
 
@@ -236,7 +317,7 @@ window.submitCustomerForm = async function (formType) {
   try {
     estimateText = await computeEstimateText(formType);
   } catch (e) {
-    console.error("[SOW] compute failed:", e);
+    if (SOW_DEBUG) console.error("[SOW] compute failed:", e);
     estimateText = "N/A";
   }
 

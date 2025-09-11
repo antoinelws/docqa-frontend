@@ -13,24 +13,25 @@ function collectRolloutForm() {
 }
 
 /* 2) Estimation: identique à ton script (local, pas d’API) */
+// customer_rollout.js
 function estimateRollout_INTERNAL(p) {
-  const { siteCount, shipToRegion, blueprintNeeded } = p;
+  // config.js must be loaded on the page before this file
+  const cfg = SOWCFG.getSync();
+  const R = cfg?.rollout || {};
 
-  if (blueprintNeeded === "No") {
-    // Interne: message & stop — côté email on renvoie 16h avec note
-    return { total_effort: 16, note: "Blueprint/Workshop (16 hours) required" };
+  const baseMap = R.baseHours || {};
+  const regionMap = R.regionExtra || {};
+
+  // p.siteCount and p.shipToRegion should match your form values
+  const base = baseMap[p.siteCount] ?? 0;
+  const extra = regionMap[p.shipToRegion] ?? (regionMap.default ?? 0);
+
+  if (p.blueprintNeeded === "No") {
+    return { total_effort: R.blueprintHours ?? 16, note: "Blueprint/Workshop required" };
   }
-
-  let baseHours = 0;
-  if (siteCount === "Only 1") baseHours = 40;
-  else if (siteCount === "2 to 5") baseHours = 120;
-  else if (siteCount === "More than 5") baseHours = 200;
-
-  const regionalExtra = shipToRegion === "US" ? 0 : 16;
-  const total = baseHours + regionalExtra;
-
-  return { total_effort: total };
+  return { total_effort: base + extra };
 }
+
 
 /* 3) Breakdown simple */
 function rolloutBreakdownHtml(est) {

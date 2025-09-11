@@ -40,20 +40,30 @@ function collectNewCarrierForm() {
 }
 
 /* 2) Estimation: identique à l’interne (appel API & parsing) */
+// customer_new_carrier.js
 async function estimateNewCarrier_INTERNAL(payload) {
-  const res = await fetch("https://docqa-api.onrender.com/estimate/new_carrier", {
+  const cfg = await SOWCFG.get();
+  const url = cfg?.api?.newCarrierUrl || "https://docqa-api.onrender.com/estimate/new_carrier";
+
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+
+  // API might return text or JSON; be defensive
   const text = await res.text();
   try {
     const json = JSON.parse(text);
-    return { total_effort: json?.total_effort ?? null, details: json?.details || null };
+    return {
+      total_effort: json?.total_effort ?? null,
+      details: json?.details || null
+    };
   } catch {
-    return "N/A";
+    return { total_effort: null, details: null };
   }
 }
+
 
 /* 3) Breakdown (optionnel) */
 function ncBreakdownHtml(est) {

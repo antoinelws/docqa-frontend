@@ -73,11 +73,16 @@
         <input type="file" id="specFile" name="sowFile" required />
       </fieldset>
 
-      <button type="button" class="btn primary" onclick="submitCustomerForm('Other')">Send request to ShipERP</button>
+      <!-- OLD -->
+      <!-- <button type="button" class="btn primary" onclick="submitCustomerForm('New Carrier')">Send request to ShipERP</button> -->
+      
+      <!-- NEW -->
+      <button type="button" class="btn primary" onclick="submitCustomer_other()">Send request to ShipERP</button>
+
     </form>
   </div>
 
-<button type="button" class="btn primary" onclick="submitCustomer_Other()">Send request to ShipERP</button>
+
 <script src="customer_core.js"></script>
 <script src="customer_other.js"></script>
 </body></html>

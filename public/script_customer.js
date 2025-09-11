@@ -70,9 +70,7 @@ function buildEmailHTML(formType, fields, estimateText) {
 
 /** New Carrier: s'assure que le DOM customer présente les mêmes signaux que l'interne */
 function syncDomForNewCarrier() {
-  // 1) featureInterest (souvent un <select> côté interne)
-  //    - si absent côté customer, on le crée en hidden
-  //    - valeur = priorité aux cases cochées "features", sinon déduit de l'écran "Small Parcel"
+  // 1️⃣ S'assurer que le champ hidden featureInterest existe
   let fi = $id("featureInterest");
   if (!fi) {
     fi = document.createElement("input");
@@ -80,45 +78,47 @@ function syncDomForNewCarrier() {
     fi.id   = "featureInterest";
     document.body.appendChild(fi);
   }
-  // déduction features -> featureInterest
-  const featuresChecked = Array.from(document.querySelectorAll("input.feature-box:checked, input[name='features']:checked"))
-    .map(el=>String(el.value).trim());
-  const hasShippingLabeling = featuresChecked.includes("Shipping & Labeling");
+
+  // 2️⃣ Reconstruire features comme sur la page interne
+  const featuresChecked = Array.from(document.querySelectorAll(
+    "input.feature-box:checked, input[name='features']:checked"
+  )).map(el => el.value);
 
   const hasSmallParcelScreen =
     ($id("screen_smallparcel") && $id("screen_smallparcel").checked) ||
     Array.from(document.querySelectorAll("input[value='Small Parcel Screen']")).some(el => el.checked);
 
-  if (hasShippingLabeling) {
-    fi.value = "Shipping & Labeling";
-  } else if (hasSmallParcelScreen) {
-    // règle interne typique: Small Parcel -> Shipping & Labeling
-    fi.value = "Shipping & Labeling";
-  } else if (featuresChecked.length) {
-    // sinon, prend la 1ère feature cochée
-    fi.value = featuresChecked[0];
-  } else {
-    fi.value = ""; // pas d'inférence si rien n'est choisi
+  // -> La logique interne met "Shipping & Labeling" quand Small Parcel est choisi
+  let finalFeatures = [...featuresChecked];
+  if (finalFeatures.length === 0 && hasSmallParcelScreen) {
+    finalFeatures = ["Shipping & Labeling"];
   }
 
-  // 2) zEnhancements / shipToVolume: l'interne lit souvent la valeur brute du select
-  //    s'il n'y a pas de select numérique, on laisse les libellés ("Less than 10", etc.)
-  const zSel = $id("zEnhancements") || document.querySelector("[name='zEnhancements']");
-  if (!zSel) {
-    // si vraiment absent, on crée un hidden pour éviter un undefined côté interne
-    const z = document.createElement("input");
-    z.type = "hidden"; z.id = "zEnhancements"; z.value = "I'm not sure";
-    document.body.appendChild(z);
-  }
+  // 3️⃣ Remplir featureInterest avec la 1ère feature (comme interne)
+  fi.value = finalFeatures[0] || "";
 
-  // 3) resultBox: certaines internes écrivent dedans -> on met un div caché
+  // 4️⃣ Créer/mettre à jour un input hidden "features" pour l’appel interne
+  let hf = $id("features_hidden");
+  if (!hf) {
+    hf = document.createElement("input");
+    hf.type = "hidden";
+    hf.id   = "features_hidden";
+    hf.name = "features"; // clé que l'interne cherche
+    document.body.appendChild(hf);
+  }
+  hf.value = finalFeatures.join(","); // interne accepte la liste jointe
+
+  // 5️⃣ Créer un div #resultBox caché si manquant (utilisé par l'interne pour afficher le résultat)
   if (!$id("resultBox")) {
     const rb = document.createElement("div");
     rb.id = "resultBox";
     rb.style.cssText = "visibility:hidden;height:0;overflow:hidden;";
     document.body.appendChild(rb);
   }
+
+  if (SOW_DEBUG) console.log("[SOW][NC] features synced:", finalFeatures);
 }
+
 
 /** (optionnel) Rollout / Upgrade / Other: ajoute juste un resultBox caché */
 function ensureResultBox() {

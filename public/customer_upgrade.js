@@ -12,52 +12,39 @@ function collectUpgradeForm() {
 }
 
 /* 2) Estimation: identique à ton script (local) */
+// customer_upgrade.js
 function estimateUpgrade_INTERNAL(p) {
-  const { shiperpVersion, zenhancements, onlineCarriers, ewmUsage, modulesUsed } = p;
+  const U = SOWCFG.getSync()?.upgrade || {};
 
-  const weightVersion =
-    shiperpVersion === "Between 3.6 and 3.9" ? 15 :
-    shiperpVersion === "Lower than 3.6" ? 25 : 0;
+  const wV = (U.versionWeights?.[p.shiperpVersion] ?? U.versionWeights?.default ?? 0);
+  const wZ = (U.zEnhancementsWeights?.[p.zenhancements] ?? U.zEnhancementsWeights?.default ?? 0);
+  const wC = (U.onlineCarriersWeights?.[p.onlineCarriers] ?? U.onlineCarriersWeights?.default ?? 0);
+  const wE = (p.ewmUsage === "Yes") ? (U.ewmWeight ?? 0) : 0;
+  const wM = (p.modulesUsed?.length || 0) > (U.modulesThreshold ?? 3) ? (U.modulesExtra ?? 0) : 0;
 
-  const weightZ = ({
-    "1 to 10": 15,
-    "10 to 50": 60,
-    "50 to 100": 100,
-    "More than 100": 150
-  }[zenhancements]) || 0;
+  const base = U.baseEffort ?? 8;
+  const integ = (U.integrationBase ?? 16) + (U.integrationCoeff ?? 0.1) * (wC + wE);
+  const test  = (U.testingBase ?? 8) + (U.testingCoeff ?? 0.2) * (wC + wM);
+  const train = U.training ?? 40;
+  const docs  = U.documentation ?? 32;
 
-  const weightCarrier = ({
-    "1 to 5": 60,
-    "6 to 10": 200,
-    "More than 10": 300
-  }[onlineCarriers]) || 0;
+  const core  = (U.coreFactor ?? 0.2) * (wV + wZ + wC + wE + wM + base + integ + test + train + docs);
+  const total = core + base + wZ + wC + wE + integ + test + train + docs;
 
-  const weightEWM = ewmUsage === "Yes" ? 50 : 0;
-  const weightModules = (modulesUsed || []).length > 3 ? 40 : 0;
-
-  const baseEffort = 8;
-  const integrationEffort = 16 + 0.1 * (weightCarrier + weightEWM);
-  const testingEffort = 8 + 0.2 * (weightCarrier + weightModules);
-  const trainingEffort = 40;
-  const documentationEffort = 32;
-
-  const totalEffortCore = 0.2 * (weightVersion + weightZ + weightCarrier + weightEWM + weightModules + baseEffort + integrationEffort + testingEffort + trainingEffort + documentationEffort);
-  const totalAll = totalEffortCore + baseEffort + weightZ + weightCarrier + weightEWM + integrationEffort + testingEffort + trainingEffort + documentationEffort;
-
-  const rng = v => ({ from: Math.round(v*0.8), to: Math.round(v*1.2) });
-
+  const rng = (v) => ({ from: Math.round(v * 0.8), to: Math.round(v * 1.2) });
   return {
-    range_core: rng(totalEffortCore),
-    range_foundation: rng(baseEffort),
-    range_z: rng(weightZ + weightEWM),
-    range_carriers: rng(weightCarrier),
-    range_integration: rng(integrationEffort),
-    range_testing: rng(testingEffort),
-    range_training: rng(trainingEffort),
-    range_docs: rng(documentationEffort),
-    range_total: rng(totalAll)
+    range_core: rng(core),
+    range_foundation: rng(base),
+    range_z: rng(wZ + wE),
+    range_carriers: rng(wC),
+    range_integration: rng(integ),
+    range_testing: rng(test),
+    range_training: rng(train),
+    range_docs: rng(docs),
+    range_total: rng(total)
   };
 }
+
 
 /* 3) Breakdown — même présentation (compact) */
 function upgradeBreakdownHtml(est) {

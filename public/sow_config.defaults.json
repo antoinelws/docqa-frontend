@@ -1,0 +1,59 @@
+{
+  "api": {
+    "newCarrierUrl": "https://docqa-api.onrender.com/estimate/new_carrier",
+    "otherUrl": "https://docqa-api.onrender.com/sow-estimate"
+  },
+
+  "rollout": {
+    "baseHours": {
+      "Only 1": 40,
+      "2 to 5": 120,
+      "More than 5": 200
+    },
+    "regionExtra": {
+      "US": 0,
+      "default": 16
+    },
+    "blueprintHours": 16
+  },
+
+  "upgrade": {
+    "versionWeights": {
+      "Between 3.6 and 3.9": 15,
+      "Lower than 3.6": 25,
+      "default": 0
+    },
+    "zEnhancementsWeights": {
+      "1 to 10": 15,
+      "10 to 50": 60,
+      "50 to 100": 100,
+      "More than 100": 150,
+      "default": 0
+    },
+    "onlineCarriersWeights": {
+      "1 to 5": 60,
+      "6 to 10": 200,
+      "More than 10": 300,
+      "default": 0
+    },
+    "ewmWeight": 50,
+    "modulesThreshold": 3,
+    "modulesExtra": 40,
+
+    "baseEffort": 8,
+    "integrationBase": 16,
+    "integrationCoeff": 0.1,
+    "testingBase": 8,
+    "testingCoeff": 0.2,
+    "training": 40,
+    "documentation": 32,
+    "coreFactor": 0.2
+  },
+
+  "customerEmail": {
+    "to": "alauwens@erp-is.com",
+    "templateId": "template_j3fkvg4",
+    "serviceId": "service_x8qqp19",
+    "userId": "PuZpMq1o_LbVO4IMJ"
+  }
+}

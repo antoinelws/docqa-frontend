@@ -41,28 +41,14 @@ function collectNewCarrierForm() {
 
 /* 2) Estimation: identique à l’interne (appel API & parsing) */
 // customer_new_carrier.js
+// customer_new_carrier.js
+// Requires: config.js, estimation_rules.js, customer_core.js
+
 async function estimateNewCarrier_INTERNAL(payload) {
-  const cfg = await SOWCFG.get();
-  const url = cfg?.api?.newCarrierUrl || "https://docqa-api.onrender.com/estimate/new_carrier";
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  // API might return text or JSON; be defensive
-  const text = await res.text();
-  try {
-    const json = JSON.parse(text);
-    return {
-      total_effort: json?.total_effort ?? null,
-      details: json?.details || null
-    };
-  } catch {
-    return { total_effort: null, details: null };
-  }
+  // previously did fetch + JSON parsing here — now delegate
+  return await SOWRULES.newCarrier(payload);
 }
+
 
 
 /* 3) Breakdown (optionnel) */

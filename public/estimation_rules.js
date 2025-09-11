@@ -4,51 +4,55 @@
 
 window.SOWRULES = (function () {
   // --- Rollout ---
-  function rollout(p) {
-    const cfg = SOWCFG.getSync()?.rollout || {};
-    const baseMap = cfg.baseHours || {};
-    const regionMap = cfg.regionExtra || {};
+ // --- Rollout ---
+async function rollout(p) {
+  const cfgAll = await SOWCFG.get();
+  const cfg = cfgAll?.rollout || {};
 
-    const base = baseMap[p.siteCount] ?? 0;
-    const extra = regionMap[p.shipToRegion] ?? (regionMap.default ?? 0);
+  const baseMap = cfg.baseHours || {};
+  const regionMap = cfg.regionExtra || {};
 
-    if (p.blueprintNeeded === "No") {
-      return { total_effort: cfg.blueprintHours ?? 16, note: "Blueprint/Workshop required" };
-    }
-    return { total_effort: base + extra };
+  const base = baseMap[p.siteCount] ?? 0;
+  const extra = regionMap[p.shipToRegion] ?? (regionMap.default ?? 0);
+
+  if (p.blueprintNeeded === "No") {
+    return { total_effort: cfg.blueprintHours ?? 16, note: "Blueprint/Workshop required" };
   }
+  return { total_effort: base + extra };
+}
 
-  // --- Upgrade ---
-  function upgrade(p) {
-    const U = SOWCFG.getSync()?.upgrade || {};
-    const wV = (U.versionWeights?.[p.shiperpVersion] ?? U.versionWeights?.default ?? 0);
-    const wZ = (U.zEnhancementsWeights?.[p.zenhancements] ?? U.zEnhancementsWeights?.default ?? 0);
-    const wC = (U.onlineCarriersWeights?.[p.onlineCarriers] ?? U.onlineCarriersWeights?.default ?? 0);
-    const wE = (p.ewmUsage === "Yes") ? (U.ewmWeight ?? 0) : 0;
-    const wM = (p.modulesUsed?.length || 0) > (U.modulesThreshold ?? 3) ? (U.modulesExtra ?? 0) : 0;
+// --- Upgrade ---
+async function upgrade(p) {
+  const U = (await SOWCFG.get())?.upgrade || {};
 
-    const base = U.baseEffort ?? 8;
-    const integ = (U.integrationBase ?? 16) + (U.integrationCoeff ?? 0.1) * (wC + wE);
-    const test  = (U.testingBase ?? 8) + (U.testingCoeff ?? 0.2) * (wC + wM);
-    const train = U.training ?? 40;
-    const docs  = U.documentation ?? 32;
+  const wV = (U.versionWeights?.[p.shiperpVersion] ?? U.versionWeights?.default ?? 0);
+  const wZ = (U.zEnhancementsWeights?.[p.zenhancements] ?? U.zEnhancementsWeights?.default ?? 0);
+  const wC = (U.onlineCarriersWeights?.[p.onlineCarriers] ?? U.onlineCarriersWeights?.default ?? 0);
+  const wE = (p.ewmUsage === "Yes") ? (U.ewmWeight ?? 0) : 0;
+  const wM = (p.modulesUsed?.length || 0) > (U.modulesThreshold ?? 3) ? (U.modulesExtra ?? 0) : 0;
 
-    const core  = (U.coreFactor ?? 0.2) * (wV + wZ + wC + wE + wM + base + integ + test + train + docs);
-    const total = core + base + wZ + wC + wE + integ + test + train + docs;
+  const base = U.baseEffort ?? 8;
+  const integ = (U.integrationBase ?? 16) + (U.integrationCoeff ?? 0.1) * (wC + wE);
+  const test  = (U.testingBase ?? 8) + (U.testingCoeff ?? 0.2) * (wC + wM);
+  const train = U.training ?? 40;
+  const docs  = U.documentation ?? 32;
 
-    const rng = (v) => ({ from: Math.round(v * 0.8), to: Math.round(v * 1.2) });
-    return {
-      range_core: rng(core),
-      range_foundation: rng(base),
-      range_z: rng(wZ + wE),
-      range_carriers: rng(wC),
-      range_integration: rng(integ),
-      range_testing: rng(test),
-      range_training: rng(train),
-      range_docs: rng(docs),
-      range_total: rng(total)
-    };
-  }
+  const core  = (U.coreFactor ?? 0.2) * (wV + wZ + wC + wE + wM + base + integ + test + train + docs);
+  const total = core + base + wZ + wC + wE + integ + test + train + docs;
+
+  const rng = (v) => ({ from: Math.round(v * 0.8), to: Math.round(v * 1.2) });
+  return {
+    range_core: rng(core),
+    range_foundation: rng(base),
+    range_z: rng(wZ + wE),
+    range_carriers: rng(wC),
+    range_integration: rng(integ),
+    range_testing: rng(test),
+    range_training: rng(train),
+    range_docs: rng(docs),
+    range_total: rng(total)
+  };
+}
 
   // --- Other (API) ---
   async function other(payload) {

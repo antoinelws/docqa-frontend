@@ -1,13 +1,14 @@
-// script_customer.js — Customer pages = Parité stricte New Carrier (payload miroir) + Capture interne pour autres + EmailJS
+// script_customer.js — Customer pages = Payload miroir New Carrier + EmailJS + Trace
+// Forcé: New Carrier passe par l'appel API /estimate/new_carrier avec payload identique à l'interne
 
 /* ===== EmailJS ===== */
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // Body du template: <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // Template body: <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com";
 
 /* ===== Debug ===== */
-const SOW_DEBUG = false;
+const SOW_DEBUG = true;   // ← laisse TRUE pour comparer ce qui part / ce qui revient
 
 /* ===== Helpers ===== */
 const $id = (x) => document.getElementById(x);
@@ -61,12 +62,14 @@ function buildEmailHTML(formType, fields, estimateText) {
   `;
 }
 
-/* ====== Fallback New Carrier: payload IDENTIQUE à l’interne ======
-   - zEnhancements: ENTIER si value numérique, sinon on laisse le texte; l’API se base sur shipToVolume.
-   - shipToVolume: valeur **brute** du select zEnhancements (exactement comme l’interne).
+/* ====== Payload New Carrier — Miroir strict de l’interne ======
+   Points sensibles:
+   - shipToVolume = valeur BRUTE du select zEnhancements (ex: "Less than 10")
+   - zEnhancements = entier "à la interne" si possible, sinon 0 (le backend se base surtout sur shipToVolume)
+   - features/systemUsed/shipmentScreens lus comme sur les pages client, sans forcer
 */
 function buildNewCarrierPayload_INTERNAL_exact_like() {
-  // features: accepte .feature-box ou name='features' selon tes pages
+  // features acceptées sous 2 formes (selon tes pages)
   const features = Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value)
     .concat(Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value));
 
@@ -85,17 +88,14 @@ function buildNewCarrierPayload_INTERNAL_exact_like() {
     { "Less than 10":9, "Between 10 and 50":50, "More than 50":100, "I'm not sure":0 }[zRaw] ?? 0
   );
 
-  // >>> DÉTAIL CLÉ: identique à l’interne
-  const shipToVolume_likeInternal = zRaw;
-
-  return {
+  const payload = {
     clientName: $id("clientName")?.value || "",
     featureInterest: $id("featureInterest")?.value || "",
     email: $id("email")?.value || "",
     carrierName: $id("carrierName")?.value || "",
     carrierOther: $id("carrierOther")?.value || "",
     alreadyUsed: $id("alreadyUsed")?.value || "",
-    zEnhancements, // entier si possible (peu importe si l’API ne l’utilise pas)
+    zEnhancements, // entier si possible
     onlineOrOffline: $id("onlineOrOffline")?.value || "",
     features,
     sapVersion: $id("sapVersion")?.value || "",
@@ -106,38 +106,30 @@ function buildNewCarrierPayload_INTERNAL_exact_like() {
     shipmentScreens,
     shipFrom: Array.from($id("shipFrom")?.selectedOptions || []).map(o => o.value),
     shipTo:   Array.from($id("shipTo")?.selectedOptions   || []).map(o => o.value),
-    shipToVolume: shipToVolume_likeInternal, // <<< exactement comme l’interne
+    shipToVolume: zRaw, // *** identique à l’interne ***
     shipmentScreenString: shipmentScreens.join(", ")
   };
+
+  if (SOW_DEBUG) console.log("[SOW] NewCarrier payload (customer):", payload);
+  return payload;
 }
 
-async function fallbackNewCarrierEstimateText() {
-  const payload = buildNewCarrierPayload_INTERNAL_exact_like();
-  if (SOW_DEBUG) console.log("[SOW] Fallback payload (internal-like):", payload);
-
+async function callNewCarrierAPI(payload) {
   const res = await fetch("https://docqa-api.onrender.com/estimate/new_carrier", {
     method: "POST",
     headers: { "Content-Type":"application/json" },
     body: JSON.stringify(payload)
   });
-  const text = await res.text();
-  if (SOW_DEBUG) console.log("[SOW] Fallback API raw:", text);
-
-  let json = null;
-  try { json = JSON.parse(text); } catch {}
+  const raw = await res.text();
+  let json = null; try { json = JSON.parse(raw); } catch {}
+  if (SOW_DEBUG) console.log("[SOW] NewCarrier API raw:", raw, "parsed:", json);
   const hours = (json && typeof json.total_effort !== "undefined") ? Number(json.total_effort) : null;
-  return (Number.isFinite(hours) ? `${hours} hours` : "N/A");
+  return Number.isFinite(hours) ? `${hours} hours` : "N/A";
 }
 
-/* ====== Capture interne (pour Rollout/Upgrade/Other) ====== */
+/* ====== Capture interne (pour Rollout/Upgrade/Other uniquement) ====== */
 function callIfExists(names) {
-  for (const n of names) {
-    const fn = window[n];
-    if (typeof fn === "function") {
-      if (SOW_DEBUG) console.log("[SOW] using internal fn:", n);
-      return fn;
-    }
-  }
+  for (const n of names) { const fn = window[n]; if (typeof fn === "function") return fn; }
   return null;
 }
 async function captureInternalEstimate(invoke) {
@@ -169,13 +161,13 @@ function parseEstimateText(rawText) {
 async function computeEstimateText(formType) {
   const t = String(formType||"").toLowerCase();
 
-  // 🚨 Parité stricte New Carrier: on FORCE le payload miroir (pas de capture)
+  // 🚨 NEW CARRIER = payload miroir (pas de capture)
   if (t.includes("new") && t.includes("carrier")) {
-    if (SOW_DEBUG) console.warn("[SOW] Forcing payload-identical fallback for New Carrier.");
-    return await fallbackNewCarrierEstimateText();
+    const payload = buildNewCarrierPayload_INTERNAL_exact_like();
+    return await callNewCarrierAPI(payload);
   }
 
-  // Autres types: on tente de réutiliser la logique interne (capture)
+  // Autres types: on tente la logique interne, sinon N/A (dis-moi si tu veux des fallbacks miroir pour eux)
   let fn = null;
   if (t.includes("rollout")) {
     fn = callIfExists(["submitEstimateRollout","calculateRollout","estimateRollout","submitEstimate"]);
@@ -206,7 +198,6 @@ async function sendEmailJS({subject, html, replyTo}) {
     }
   };
   if (SOW_DEBUG) console.log("[SOW] EmailJS payload:", payload);
-
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
   });
@@ -217,7 +208,6 @@ async function sendEmailJS({subject, html, replyTo}) {
 window.submitCustomerForm = async function (formType) {
   const fields = collectFormFields();
 
-  // Calcul
   let estimateText = "N/A";
   try {
     estimateText = await computeEstimateText(formType);
@@ -226,7 +216,6 @@ window.submitCustomerForm = async function (formType) {
     estimateText = "N/A";
   }
 
-  // Email
   const subject = `SOW | ${formType} | ${fields["Client Name"] || fields["Customer Name"] || fields["clientName"] || ""}`;
   const html    = buildEmailHTML(formType, fields, estimateText);
 

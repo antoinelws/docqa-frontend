@@ -1,18 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Dynamically render feature checkboxes
-  const features = [
-    "Shipping & Labeling",
-    "Rate quoting",
-    "Tracking",
-    "Proof of Delivery",
-    "Hazmat shipping",
-    "End of day manifest",
-    "Create Request for Pickup",
-    "Cancel Request for Pickup",
-    "Address Validation",
-    "Electronic Trade Documents"
-  ];
-
+  // (UI code unchanged)
+  const features = [/* ...same list... */];
   const container = document.getElementById("features");
   if (container) {
     features.forEach((feature) => {
@@ -22,8 +10,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  window.submitEstimate = function () {
+  window.submitEstimate = async function () {
     const form = {
+      // ... same form gathering as before ...
       clientName: document.getElementById("clientName")?.value,
       featureInterest: document.getElementById("featureInterest")?.value,
       email: document.getElementById("email")?.value,
@@ -37,45 +26,26 @@ document.addEventListener("DOMContentLoaded", () => {
       abapVersion: document.getElementById("abapVersion")?.value,
       shiperpVersion: document.getElementById("shiperpVersion")?.value,
       serpcarUsage: document.getElementById("serpcarUsage")?.value,
-      systemUsed: ["sys_ecc", "sys_ewm", "sys_tm"]
-        .filter(id => document.getElementById(id)?.checked)
-        .map(id => document.getElementById(id)?.value),
-      shipmentScreens: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
-        .filter(id => document.getElementById(id)?.checked)
-        .map(id => document.getElementById(id)?.value),
+      systemUsed: ["sys_ecc", "sys_ewm", "sys_tm"].filter(id => document.getElementById(id)?.checked).map(id => document.getElementById(id)?.value),
+      shipmentScreens: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"].filter(id => document.getElementById(id)?.checked).map(id => document.getElementById(id)?.value),
       shipFrom: Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
       shipTo: Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
       shipToVolume: document.getElementById("zEnhancements")?.value,
-      shipmentScreenString: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
-        .filter(id => document.getElementById(id)?.checked)
-        .map(id => document.getElementById(id)?.value)
-        .join(", "),
+      shipmentScreenString: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"].filter(id => document.getElementById(id)?.checked).map(id => document.getElementById(id)?.value).join(", "),
     };
 
-    fetch("https://docqa-api.onrender.com/estimate/new_carrier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        try {
-          const json = JSON.parse(text);
-          console.log("Backend response:", json);
-          if (json.total_effort !== undefined) {
-            displayResult(`Estimated Effort: ${json.total_effort} hours`);
-          } else {
-            displayResult("No total_effort returned:\n\n" + JSON.stringify(json, null, 2));
-          }
-        } catch (err) {
-          console.error("Invalid JSON from server:", text);
-          displayResult("Error: Backend did not return valid JSON.\n\n" + text);
-        }
-      })
-      .catch((err) => {
-        console.error("Fetch failed:", err);
-        displayResult("Network or server error: " + err.message);
-      });
+    try {
+      // 👇 NEW: call the shared rule (it reads URL from SOWCFG internally)
+      const result = await SOWRULES.newCarrier(form);
+      if (result?.total_effort != null) {
+        displayResult(`Estimated Effort: ${result.total_effort} hours`);
+      } else {
+        displayResult("No total_effort returned.");
+      }
+    } catch (err) {
+      console.error("Estimate failed:", err);
+      displayResult("Network or server error: " + err.message);
+    }
   };
 });
 

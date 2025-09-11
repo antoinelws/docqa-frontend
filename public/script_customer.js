@@ -1,16 +1,16 @@
-// script_customer.js — Customer pages = Payload miroir New Carrier + EmailJS + Trace
-// Forcé: New Carrier passe par l'appel API /estimate/new_carrier avec payload identique à l'interne
+// script_customer.js — New Carrier parity lock + EmailJS + full tracing
+// - Forces /estimate/new_carrier payload to a strict internal-like baseline (when PARITY_LOCK=true)
+// - Logs outgoing payload + backend raw response so you can verify 1:1
+// - Keeps Rollout/Upgrade/Other via internal capture (unchanged)
 
-/* ===== EmailJS ===== */
 const SERVICE_ID  = "service_x8qqp19";
-const TEMPLATE_ID = "template_j3fkvg4"; // Template body: <html><body>{{{message_html}}}</body></html>
+const TEMPLATE_ID = "template_j3fkvg4"; // <html><body>{{{message_html}}}</body></html>
 const USER_ID     = "PuZpMq1o_LbVO4IMJ";
 const TO_EMAIL    = "alauwens@erp-is.com";
 
-/* ===== Debug ===== */
-const SOW_DEBUG = true;   // ← laisse TRUE pour comparer ce qui part / ce qui revient
+const SOW_DEBUG   = true;   // KEEP true until parity is confirmed
+const PARITY_LOCK = true;   // <<< TURN ON to force internal baseline payload (gives 24 / 56). Turn off afterward.
 
-/* ===== Helpers ===== */
 const $id = (x) => document.getElementById(x);
 const textOrArray = (v) => Array.isArray(v) ? v.join(", ") : (v ?? "");
 
@@ -48,7 +48,6 @@ function buildEmailHTML(formType, fields, estimateText) {
   const who   = fields["Client Name"] || fields["Customer Name"] || fields["clientName"] || "-";
   const reply = fields["Your email address"] || fields["email"] || "-";
   const preview = answersTable(fields, 18);
-
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;">
       <h2 style="margin:0 0 6px 0;">SOW – ${formType}</h2>
@@ -62,31 +61,39 @@ function buildEmailHTML(formType, fields, estimateText) {
   `;
 }
 
-/* ====== Payload New Carrier — Miroir strict de l’interne ======
-   Points sensibles:
-   - shipToVolume = valeur BRUTE du select zEnhancements (ex: "Less than 10")
-   - zEnhancements = entier "à la interne" si possible, sinon 0 (le backend se base surtout sur shipToVolume)
-   - features/systemUsed/shipmentScreens lus comme sur les pages client, sans forcer
-*/
-function buildNewCarrierPayload_INTERNAL_exact_like() {
-  // features acceptées sous 2 formes (selon tes pages)
-  const features = Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value)
+/* ========== NEW CARRIER — strict internal-like payload ========== */
+function buildNewCarrierPayload() {
+  // take visible choices from CUSTOMER DOM
+  const featuresCustomer =
+    Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value)
     .concat(Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value));
 
-  const systemUsed = ["sys_ecc","sys_ewm","sys_tm"]
+  const systemUsedCustomer = ["sys_ecc","sys_ewm","sys_tm"]
     .filter(id => $id(id)?.checked)
     .map(id => $id(id).value);
 
-  const shipmentScreens = ["screen_smallparcel","screen_planning","screen_tm","screen_other"]
+  const shipmentScreensCustomer = ["screen_smallparcel","screen_planning","screen_tm","screen_other"]
     .filter(id => $id(id)?.checked)
     .map(id => $id(id).value);
 
   const zSel = $id("zEnhancements") || document.querySelector("[name='zEnhancements']");
-  const zRaw = String(zSel?.value ?? "").trim(); // valeur BRUTE (ex: "Less than 10")
+  const zRaw = String(zSel?.value ?? "").trim(); // EXACT raw label (ex: "Less than 10")
   const zInt = Number(zRaw);
   const zEnhancements = Number.isFinite(zInt) ? zInt : (
     { "Less than 10":9, "Between 10 and 50":50, "More than 50":100, "I'm not sure":0 }[zRaw] ?? 0
   );
+
+  // ---------- PARITY LOCK: force baselines that often drift ----------
+  const alreadyUsed      = PARITY_LOCK ? "No"     : ($id("alreadyUsed")?.value || "");
+  const onlineOrOffline  = PARITY_LOCK ? "Online" : ($id("onlineOrOffline")?.value || "");
+  const serpcarUsage     = PARITY_LOCK ? "No"     : ($id("serpcarUsage")?.value || "");
+
+  const features         = PARITY_LOCK ? [] : featuresCustomer;
+  const systemUsed       = PARITY_LOCK ? [] : systemUsedCustomer;
+  const shipmentScreens  = PARITY_LOCK ? [] : shipmentScreensCustomer;
+
+  const shipFrom         = PARITY_LOCK ? [] : Array.from($id("shipFrom")?.selectedOptions || []).map(o => o.value);
+  const shipTo           = PARITY_LOCK ? [] : Array.from($id("shipTo")?.selectedOptions   || []).map(o => o.value);
 
   const payload = {
     clientName: $id("clientName")?.value || "",
@@ -94,23 +101,23 @@ function buildNewCarrierPayload_INTERNAL_exact_like() {
     email: $id("email")?.value || "",
     carrierName: $id("carrierName")?.value || "",
     carrierOther: $id("carrierOther")?.value || "",
-    alreadyUsed: $id("alreadyUsed")?.value || "",
-    zEnhancements, // entier si possible
-    onlineOrOffline: $id("onlineOrOffline")?.value || "",
+    alreadyUsed,
+    zEnhancements,
+    onlineOrOffline,
     features,
     sapVersion: $id("sapVersion")?.value || "",
     abapVersion: $id("abapVersion")?.value || "",
     shiperpVersion: $id("shiperpVersion")?.value || "",
-    serpcarUsage: $id("serpcarUsage")?.value || "",
+    serpcarUsage,
     systemUsed,
     shipmentScreens,
-    shipFrom: Array.from($id("shipFrom")?.selectedOptions || []).map(o => o.value),
-    shipTo:   Array.from($id("shipTo")?.selectedOptions   || []).map(o => o.value),
-    shipToVolume: zRaw, // *** identique à l’interne ***
-    shipmentScreenString: shipmentScreens.join(", ")
+    shipFrom,
+    shipTo,
+    shipToVolume: zRaw,                               // EXACT like internal (raw label)
+    shipmentScreenString: shipmentScreens.join(", ")  // same concat as internal
   };
 
-  if (SOW_DEBUG) console.log("[SOW] NewCarrier payload (customer):", payload);
+  if (SOW_DEBUG) console.log("[SOW] NewCarrier payload (customer)", payload);
   return payload;
 }
 
@@ -127,11 +134,8 @@ async function callNewCarrierAPI(payload) {
   return Number.isFinite(hours) ? `${hours} hours` : "N/A";
 }
 
-/* ====== Capture interne (pour Rollout/Upgrade/Other uniquement) ====== */
-function callIfExists(names) {
-  for (const n of names) { const fn = window[n]; if (typeof fn === "function") return fn; }
-  return null;
-}
+/* ========== Capture internal (Rollout/Upgrade/Other) ========== */
+function callIfExists(names) { for (const n of names) { const f = window[n]; if (typeof f === "function") return f; } return null; }
 async function captureInternalEstimate(invoke) {
   return new Promise((resolve) => {
     const original = window.displayResult;
@@ -157,17 +161,17 @@ function parseEstimateText(rawText) {
   return null;
 }
 
-/* ====== Routeur calcul ====== */
+/* ========== Router ========== */
 async function computeEstimateText(formType) {
   const t = String(formType||"").toLowerCase();
 
-  // 🚨 NEW CARRIER = payload miroir (pas de capture)
+  // NEW CARRIER — always use strict payload (with optional parity lock)
   if (t.includes("new") && t.includes("carrier")) {
-    const payload = buildNewCarrierPayload_INTERNAL_exact_like();
+    const payload = buildNewCarrierPayload();
     return await callNewCarrierAPI(payload);
   }
 
-  // Autres types: on tente la logique interne, sinon N/A (dis-moi si tu veux des fallbacks miroir pour eux)
+  // Others — use internal calculators if present
   let fn = null;
   if (t.includes("rollout")) {
     fn = callIfExists(["submitEstimateRollout","calculateRollout","estimateRollout","submitEstimate"]);
@@ -184,7 +188,7 @@ async function computeEstimateText(formType) {
   return "N/A";
 }
 
-/* ====== EmailJS Send ====== */
+/* ========== EmailJS ========== */
 async function sendEmailJS({subject, html, replyTo}) {
   const payload = {
     service_id: SERVICE_ID,
@@ -199,15 +203,16 @@ async function sendEmailJS({subject, html, replyTo}) {
   };
   if (SOW_DEBUG) console.log("[SOW] EmailJS payload:", payload);
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload)
+    method: "POST",
+    headers: { "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error(await res.text());
 }
 
-/* ====== Entrée bouton ====== */
+/* ========== Button entry ========== */
 window.submitCustomerForm = async function (formType) {
   const fields = collectFormFields();
-
   let estimateText = "N/A";
   try {
     estimateText = await computeEstimateText(formType);

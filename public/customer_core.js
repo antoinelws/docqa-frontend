@@ -104,3 +104,11 @@ async function runCustomerFlow({ formType, collectFn, estimateFn, composeBreakdo
 
   alert("Your request has been sent to ShipERP!");
 }
+// Back-compat: allow old submitCustomerForm('Type')
+window.submitCustomerForm = function (type) {
+  const t = String(type || "").toLowerCase();
+  if (t.includes("new") && t.includes("carrier")) return window.submitCustomer_NewCarrier?.();
+  if (t.includes("rollout")) return window.submitCustomer_Rollout?.();
+  if (t.includes("upgrade")) return window.submitCustomer_Upgrade?.();
+  return window.submitCustomer_Other?.();
+};

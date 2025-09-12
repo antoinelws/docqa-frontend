@@ -57,3 +57,48 @@
     "userId": "PuZpMq1o_LbVO4IMJ"
   }
 }
+{
+  "ui": {
+    "rangeFactor": { "low": 0.8, "high": 1.2 },
+    "notes": {
+      "rolloutBlueprint": "Blueprint/Workshop required"
+    }
+  },
+  "aliases": {
+    "rollout": {
+      "siteCount": {
+        "1": "Only 1",
+        "1 site": "Only 1"
+      },
+      "shipToRegion": {
+        "USA": "US",
+        "United States": "US"
+      },
+      "blueprintNeeded": {
+        "Yes": "Yes",
+        "No": "No"
+      }
+    },
+    "upgrade": {
+      "shiperpVersion": {
+        "3.6-3.9": "Between 3.6 and 3.9",
+        "<3.6": "Lower than 3.6"
+      },
+      "zenhancements": {
+        "1-10": "1 to 10",
+        "10-50": "10 to 50",
+        "50-100": "50 to 100",
+        ">100": "More than 100"
+      },
+      "onlineCarriers": {
+        "1-5": "1 to 5",
+        "6-10": "6 to 10",
+        ">10": "More than 10"
+      },
+      "ewmUsage": {
+        "Yes": "Yes",
+        "No": "No"
+      }
+    }
+  }
+}

@@ -1,9 +1,7 @@
-// estimation_rules.js
-// Shared estimation logic for both internal & customer pages.
-// Requires: config.js
+// estimation_rules.js — Source unique: normalisation + calcul
+// Requiert: config.js
 
 window.SOWRULES = (function () {
-
   // ---------- helpers ----------
   function safeParseJson(text) {
     try { return JSON.parse(text); } catch {
@@ -12,111 +10,122 @@ window.SOWRULES = (function () {
       return null;
     }
   }
-
   function rngFromCfg(cfgUI, v) {
     const low = Number(cfgUI?.rangeFactor?.low ?? 0.8);
     const high = Number(cfgUI?.rangeFactor?.high ?? 1.2);
     return { from: Math.round(v * low), to: Math.round(v * high) };
   }
-
   function normalizeByMap(map, val) {
     if (!map) return val;
     const k = String(val ?? "").trim();
     return map[k] ?? val;
   }
-
-  // Try exact label, else bucketize a numeric value into map keys like:
-  // "Only 1", "2 to 5", "More than 10"
+  // bucketise "Only 1" / "2 to 5" / "More than 10"
   function resolveWeight(map, raw) {
     if (!map) return { key: undefined, value: 0 };
-
-    // 1) Exact match
     if (raw in map) return { key: raw, value: map[raw] };
-
-    // 2) If raw is numeric, bucket it
     const n = Number(raw);
     if (!Number.isNaN(n)) {
-      let best = { key: undefined, value: undefined };
+      let best;
       for (const [label, val] of Object.entries(map)) {
         const L = label.toLowerCase().trim();
-
         if (L.startsWith("only ")) {
           const one = Number(L.replace("only", "").trim());
           if (n === one) return { key: label, value: val };
         } else if (L.includes(" to ")) {
           const [aStr, bStr] = L.split(" to ").map(s => s.replace(/[^\d.-]/g, ""));
           const a = Number(aStr), b = Number(bStr);
-          if (!Number.isNaN(a) && !Number.isNaN(b) && n >= a && n <= b) {
-            return { key: label, value: val };
-          }
+          if (!Number.isNaN(a) && !Number.isNaN(b) && n >= a && n <= b) return { key: label, value: val };
         } else if (L.startsWith("more than")) {
           const m = Number(L.replace("more than", "").trim());
-          if (!Number.isNaN(m) && n > m) {
-            // pick the smallest upper "more than" that still matches
-            if (best.key === undefined || m > Number(best.key.replace(/[^\d.-]/g, "") || -Infinity)) {
-              best = { key: label, value: val };
-            }
-          }
+          if (!Number.isNaN(m) && n > m) best = { key: label, value: val };
         }
       }
-      if (best.key !== undefined) return best;
+      if (best) return best;
     }
-
-    // 3) Fallback to default
     if ("default" in map) return { key: "default", value: map.default };
     return { key: undefined, value: 0 };
   }
 
+  // ---------- Normalisation centralisée: New Carrier ----------
+  function normalizeNewCarrierPayload(p) {
+    const out = { ...p };
+
+    // types
+    out.zEnhancements = Number(out.zEnhancements ?? 0) || 0;
+
+    // alias de clés
+    if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
+
+    // valeurs canon
+    if (typeof out.onlineOrOffline === 'string') {
+      const s = out.onlineOrOffline.trim().toLowerCase();
+      out.onlineOrOffline = (s === 'online' || s === 'on-line') ? 'Online'
+                         : (s === 'offline' || s === 'off-line') ? 'Offline'
+                         : out.onlineOrOffline;
+    }
+    if (typeof out.alreadyUsed === 'string') {
+      const s = out.alreadyUsed.trim().toLowerCase();
+      out.alreadyUsed = (s === 'yes' || s === 'oui') ? 'Yes'
+                   : (s === 'no'  || s === 'non') ? 'No'
+                   : out.alreadyUsed;
+    }
+
+    // tableaux
+    out.features        = Array.isArray(out.features) ? out.features : [];
+    out.systemUsed      = Array.isArray(out.systemUsed) ? out.systemUsed : [];
+    out.shipmentScreens = Array.isArray(out.shipmentScreens) ? out.shipmentScreens : [];
+    out.shipFrom        = Array.isArray(out.shipFrom) ? out.shipFrom : [];
+    out.shipTo          = Array.isArray(out.shipTo) ? out.shipTo : [];
+
+    // reconstitution si string stockée
+    if ((!out.shipmentScreens.length) && typeof out.shipmentScreenString === 'string' && out.shipmentScreenString.trim()) {
+      out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
+    }
+
+    // info utile
+    out.featuresCount = out.features.length;
+
+    return out;
+  }
+
   // ---------- Rollout ----------
-  async function rollout(p, debug = false) {
+  async function rollout(p) {
     const cfgAll = await SOWCFG.get();
     const R  = cfgAll?.rollout || {};
     const UI = cfgAll?.ui || {};
     const AL = cfgAll?.aliases?.rollout || {};
 
-    const siteCountRaw      = normalizeByMap(AL.siteCount, p.siteCount);
-    const shipToRegionRaw   = normalizeByMap(AL.shipToRegion, p.shipToRegion);
-    const blueprintNeeded   = normalizeByMap(AL.blueprintNeeded, p.blueprintNeeded);
+    const siteCount      = normalizeByMap(AL.siteCount, p.siteCount);
+    const shipToRegion   = normalizeByMap(AL.shipToRegion, p.shipToRegion);
+    const blueprintNeeded= normalizeByMap(AL.blueprintNeeded, p.blueprintNeeded);
 
-    const baseRes  = resolveWeight(R.baseHours || {}, siteCountRaw);
-    const regionV  = (R.regionExtra || {})[shipToRegionRaw] ?? (R.regionExtra?.default ?? 0);
+    const baseRes = resolveWeight(R.baseHours || {}, siteCount);
+    const regionV = (R.regionExtra || {})[shipToRegion] ?? (R.regionExtra?.default ?? 0);
 
-    const total = (blueprintNeeded === "No")
-      ? (R.blueprintHours ?? 0)
-      : (Number(baseRes.value || 0) + Number(regionV || 0));
-
-    const out = (blueprintNeeded === "No")
-      ? { total_effort: total, note: (UI?.notes?.rolloutBlueprint || "Blueprint/Workshop required") }
-      : { total_effort: total };
-
-    if (debug) {
-      out._debug = {
-        inputs: p,
-        normalized: { siteCount: siteCountRaw, shipToRegion: shipToRegionRaw, blueprintNeeded },
-        baseKey: baseRes.key, baseHours: baseRes.value,
-        regionExtra: regionV
-      };
+    if (blueprintNeeded === "No") {
+      return { total_effort: R.blueprintHours ?? 0, note: UI?.notes?.rolloutBlueprint || "Blueprint/Workshop required" };
     }
-    return out;
+    return { total_effort: Number(baseRes.value || 0) + Number(regionV || 0) };
   }
 
   // ---------- Upgrade ----------
-  async function upgrade(p, debug = false) {
+  async function upgrade(p) {
     const cfgAll = await SOWCFG.get();
     const U  = cfgAll?.upgrade || {};
     const UI = cfgAll?.ui || {};
     const AL = cfgAll?.aliases?.upgrade || {};
 
-    const versionRaw   = normalizeByMap(AL.shiperpVersion, p.shiperpVersion);
-    const zRaw         = normalizeByMap(AL.zenhancements, p.zenhancements);
-    const carriersRaw  = normalizeByMap(AL.onlineCarriers, p.onlineCarriers);
-    const ewmRaw       = normalizeByMap(AL.ewmUsage, p.ewmUsage);
-    const modulesUsed  = Array.isArray(p.modulesUsed) ? p.modulesUsed : [];
+    const version   = normalizeByMap(AL.shiperpVersion, p.shiperpVersion);
+    const z         = normalizeByMap(AL.zenhancements, p.zenhancements);
+    const carriers  = normalizeByMap(AL.onlineCarriers, p.onlineCarriers);
+    const ewm       = normalizeByMap(AL.ewmUsage, p.ewmUsage);
+    const modulesUsed = Array.isArray(p.modulesUsed) ? p.modulesUsed : [];
 
-    const vRes = resolveWeight(U.versionWeights || {}, versionRaw);
-    const zRes = resolveWeight(U.zEnhancementsWeights || {}, zRaw);
-    const cRes = resolveWeight(U.onlineCarriersWeights || {}, carriersRaw);
-    const wE   = (ewmRaw === "Yes") ? (U.ewmWeight ?? 0) : 0;
+    const vRes = resolveWeight(U.versionWeights || {}, version);
+    const zRes = resolveWeight(U.zEnhancementsWeights || {}, z);
+    const cRes = resolveWeight(U.onlineCarriersWeights || {}, carriers);
+    const wE   = (ewm === "Yes") ? (U.ewmWeight ?? 0) : 0;
     const wM   = modulesUsed.length > (U.modulesThreshold ?? 0) ? (U.modulesExtra ?? 0) : 0;
 
     const base = U.baseEffort ?? 0;
@@ -125,11 +134,10 @@ window.SOWRULES = (function () {
     const train= U.training ?? 0;
     const docs = U.documentation ?? 0;
 
-    const core = (U.coreFactor ?? 0) *
-      (vRes.value + zRes.value + cRes.value + wE + wM + base + integ + test + train + docs);
+    const core  = (U.coreFactor ?? 0) * (vRes.value + zRes.value + cRes.value + wE + wM + base + integ + test + train + docs);
     const total = core + base + zRes.value + cRes.value + wE + integ + test + train + docs;
 
-    const out = {
+    return {
       range_core:        rngFromCfg(UI, core),
       range_foundation:  rngFromCfg(UI, base),
       range_z:           rngFromCfg(UI, zRes.value + wE),
@@ -140,61 +148,31 @@ window.SOWRULES = (function () {
       range_docs:        rngFromCfg(UI, docs),
       range_total:       rngFromCfg(UI, total)
     };
-
-    if (debug) {
-      out._debug = {
-        inputs: p,
-        normalized: {
-          shiperpVersion: versionRaw,
-          zenhancements: zRaw,
-          onlineCarriers: carriersRaw,
-          ewmUsage: ewmRaw,
-          modulesCount: modulesUsed.length
-        },
-        pickedKeys: { version: vRes.key, z: zRes.key, carriers: cRes.key },
-        weights: { version: vRes.value, z: zRes.value, carriers: cRes.value, ewm: wE, modules: wM },
-        constants: { base, integrationBase: U.integrationBase ?? 0, testingBase: U.testingBase ?? 0,
-          training: train, documentation: docs, coreFactor: U.coreFactor ?? 0 }
-      };
-    }
-    return out;
   }
 
   // ---------- Other (API) ----------
   async function other(payload) {
-    const url = (await SOWCFG.get())?.api?.otherUrl ||
-      "https://docqa-api.onrender.com/sow-estimate";
-    const res  = await fetch(url, {
-      method: "POST", headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(payload)
-    });
+    const url = (await SOWCFG.get())?.api?.otherUrl || "https://docqa-api.onrender.com/sow-estimate";
+    const res  = await fetch(url, { method: "POST", headers: { "Content-Type":"application/json" }, body: JSON.stringify(payload) });
     const text = await res.text();
     const data = safeParseJson(text);
     if (!data) return { total_effort: null, details: null };
-    return {
-      total_effort: (data?.from != null && data?.to != null) ? `${data.from}-${data.to}` : null,
-      details: data?.details || null
-    };
+    return { total_effort: (data?.from != null && data?.to != null) ? `${data.from}-${data.to}` : null, details: data?.details || null };
   }
 
   // ---------- New Carrier (API) ----------
   async function newCarrier(payload) {
-    const url = (await SOWCFG.get())?.api?.newCarrierUrl ||
-      "https://docqa-api.onrender.com/estimate/new_carrier";
-    const res  = await fetch(url, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    const cfg = await SOWCFG.get();
+    const url = cfg?.api?.newCarrierUrl || "https://docqa-api.onrender.com/estimate/new_carrier";
+
+    // 🔴 Normalisation centralisée (client + interne)
+    const norm = normalizeNewCarrierPayload(payload);
+
+    const res  = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(norm) });
     const text = await res.text();
     const json = safeParseJson(text);
     return { total_effort: json?.total_effort ?? null, details: json?.details || null };
   }
 
-  // Expose a debug namespace (optional)
-  const debug = {
-    rollout: (p) => rollout(p, true),
-    upgrade: (p) => upgrade(p, true)
-  };
-
-  return { rollout, upgrade, other, newCarrier, debug };
+  return { rollout, upgrade, other, newCarrier };
 })();

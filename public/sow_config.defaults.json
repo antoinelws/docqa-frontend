@@ -3,7 +3,11 @@
     "newCarrierUrl": "https://docqa-api.onrender.com/estimate/new_carrier",
     "otherUrl": "https://docqa-api.onrender.com/sow-estimate"
   },
-
+  
+  "newCarrier": {
+    "forceOnlineOffline": "Offline"
+  },
+  
   "rollout": {
     "baseHours": {
       "Only 1": 40,

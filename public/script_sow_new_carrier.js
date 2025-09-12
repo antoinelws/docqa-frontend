@@ -34,18 +34,19 @@ document.addEventListener("DOMContentLoaded", () => {
       shipmentScreenString: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"].filter(id => document.getElementById(id)?.checked).map(id => document.getElementById(id)?.value).join(", "),
     };
 
-    try {
-      // 👇 NEW: call the shared rule (it reads URL from SOWCFG internally)
-      const result = await SOWRULES.newCarrier(form);
-      if (result?.total_effort != null) {
-        displayResult(`Estimated Effort: ${result.total_effort} hours`);
-      } else {
-        displayResult("No total_effort returned.");
-      }
-    } catch (err) {
-      console.error("Estimate failed:", err);
-      displayResult("Network or server error: " + err.message);
-    }
+   // ...
+try {
+  const result = await SOWRULES.newCarrier(form);   // <-- au lieu d'un fetch direct
+  if (result?.total_effort != null) {
+    displayResult(`Estimated Effort: ${result.total_effort} hours`);
+  } else {
+    displayResult("No total_effort returned.");
+  }
+} catch (err) {
+  console.error(err);
+  displayResult("Network or server error: " + err.message);
+}
+
   };
 });
 

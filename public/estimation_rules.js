@@ -5,6 +5,7 @@
 window.SOWRULES = (function () {
   // --- Rollout ---
  // --- Rollout ---
+// --- Rollout ---
 async function rollout(p) {
   const cfgAll = await SOWCFG.get();
   const cfg = cfgAll?.rollout || {};
@@ -53,6 +54,7 @@ async function upgrade(p) {
     range_total: rng(total)
   };
 }
+
 
   // --- Other (API) ---
   async function other(payload) {

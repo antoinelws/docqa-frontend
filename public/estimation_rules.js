@@ -60,46 +60,49 @@ window.SOWRULES = (function () {
   }
 
   // ---------- Normalisation centralisée: New Carrier ----------
-  function normalizeNewCarrierPayload(p, cfgAll) {
-    const out = { ...p };
+// ---------- Normalisation centralisée: New Carrier ----------
+function normalizeNewCarrierPayload(p, cfgAll) {
+  const out = { ...p };
 
-    // types
-    out.zEnhancements = Number(out.zEnhancements ?? 0) || 0;
+  // types
+  out.zEnhancements = Number(out.zEnhancements ?? 0) || 0;
 
-    // alias de clés
-    if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
+  // alias
+  if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
 
-    // valeurs canoniques Online/Offline
+  // ⚙️ OVERRIDE GLOBAL (prend toujours le dessus si présent dans la config)
+  const forced = cfgAll?.newCarrier?.forceOnlineOffline;
+  if (forced === 'Online' || forced === 'Offline') {
+    out.onlineOrOffline = forced;
+  } else {
+    // sinon on normalise l'entrée telle qu'elle vient
     if (typeof out.onlineOrOffline === 'string') {
       const s = out.onlineOrOffline.trim().toLowerCase();
       out.onlineOrOffline = (s === 'online' || s === 'on-line') ? 'Online'
-                         : (s === 'offline' || s === 'off-line') ? 'Offline'
-                         : out.onlineOrOffline;
+                           : (s === 'offline' || s === 'off-line') ? 'Offline'
+                           : out.onlineOrOffline;
     }
-
-    // ⚙️ défaut configurable via JSON ("newCarrier.forceOnlineOffline"), sinon "Offline"
-    const forced = cfgAll?.newCarrier?.forceOnlineOffline;
     if (!out.onlineOrOffline || !/^(Online|Offline)$/i.test(out.onlineOrOffline)) {
-      out.onlineOrOffline = (forced === 'Online' || forced === 'Offline') ? forced : 'Offline';
+      out.onlineOrOffline = 'Offline'; // défaut sûr
     }
-
-    // tableaux
-    out.features        = Array.isArray(out.features) ? out.features : [];
-    out.systemUsed      = Array.isArray(out.systemUsed) ? out.systemUsed : [];
-    out.shipmentScreens = Array.isArray(out.shipmentScreens) ? out.shipmentScreens : [];
-    out.shipFrom        = Array.isArray(out.shipFrom) ? out.shipFrom : [];
-    out.shipTo          = Array.isArray(out.shipTo) ? out.shipTo : [];
-
-    // reconstitution si on n'a qu'une string
-    if ((!out.shipmentScreens.length) && typeof out.shipmentScreenString === 'string' && out.shipmentScreenString.trim()) {
-      out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
-    }
-
-    // info utile potentielle côté backend
-    out.featuresCount = out.features.length;
-
-    return out;
   }
+
+  // tableaux
+  out.features        = Array.isArray(out.features) ? out.features : [];
+  out.systemUsed      = Array.isArray(out.systemUsed) ? out.systemUsed : [];
+  out.shipmentScreens = Array.isArray(out.shipmentScreens) ? out.shipmentScreens : [];
+  out.shipFrom        = Array.isArray(out.shipFrom) ? out.shipFrom : [];
+  out.shipTo          = Array.isArray(out.shipTo) ? out.shipTo : [];
+
+  // reconstitution éventuelle
+  if ((!out.shipmentScreens.length) && typeof out.shipmentScreenString === 'string' && out.shipmentScreenString.trim()) {
+    out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
+  }
+
+  out.featuresCount = out.features.length;
+  return out;
+}
+
 
   // ---------- Rollout ----------
   async function rollout(p) {

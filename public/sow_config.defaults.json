@@ -55,15 +55,13 @@
     "templateId": "template_j3fkvg4",
     "serviceId": "service_x8qqp19",
     "userId": "PuZpMq1o_LbVO4IMJ"
-  }
-}
-{
+  },
+
   "ui": {
     "rangeFactor": { "low": 0.8, "high": 1.2 },
-    "notes": {
-      "rolloutBlueprint": "Blueprint/Workshop required"
-    }
+    "notes": { "rolloutBlueprint": "Blueprint/Workshop required" }
   },
+
   "aliases": {
     "rollout": {
       "siteCount": {

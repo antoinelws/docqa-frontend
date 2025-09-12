@@ -1,44 +1,24 @@
-// script_sow_rollout.js (internal)
-// Requires: config.js, estimation_rules.js
-
 document.addEventListener("DOMContentLoaded", () => {
   window.submitRolloutEstimate = async function () {
-    const siteCount = document.getElementById("siteCount")?.value;
-    const shipToRegion = document.getElementById("shipToRegion")?.value;
+    const siteCount       = document.getElementById("siteCount")?.value;
+    const shipToRegion    = document.getElementById("shipToRegion")?.value;
     const blueprintNeeded = document.getElementById("blueprintNeeded")?.value;
 
-    // You were reading additional fields; keep them if you need them elsewhere
-    const moduleSelect = document.getElementById("zEnhancementRollout");
-    const modules = Array.from(moduleSelect?.selectedOptions || []).map(opt => opt.value);
-    const onlineOffline = document.getElementById("onlineOfflineRollout")?.value;
-
-    const resultBox = document.getElementById("rolloutResultBox");
+    const box = document.getElementById("rolloutResultBox");
 
     try {
-      const result = await SOWRULES.rollout({
-        siteCount,
-        shipToRegion,
-        blueprintNeeded
-      });
-
-      // result = { total_effort: number, note?: string }
-      if (result?.note) {
-        resultBox.textContent = `${result.note} (${result.total_effort} hours)`;
-        resultBox.style.color = "red";
-        return;
-      }
-
-      if (result?.total_effort != null) {
-        resultBox.textContent = `Estimated Effort: ${result.total_effort} hours`;
-        resultBox.style.color = "green";
+      const r = await SOWRULES.rollout({ siteCount, shipToRegion, blueprintNeeded });
+      if (r.note) {
+        box.textContent = `${r.note} (${r.total_effort} hours)`;
+        box.style.color = "red";
       } else {
-        resultBox.textContent = "No estimate returned.";
-        resultBox.style.color = "orange";
+        box.textContent = `Estimated Effort: ${r.total_effort} hours`;
+        box.style.color = "green";
       }
-    } catch (err) {
-      console.error("Rollout estimate failed:", err);
-      resultBox.textContent = "An error occurred while estimating. Check console.";
-      resultBox.style.color = "red";
+    } catch (e) {
+      console.error(e);
+      box.textContent = "Error while estimating (see console).";
+      box.style.color = "red";
     }
   };
 });

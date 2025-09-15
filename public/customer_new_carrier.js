@@ -1,25 +1,24 @@
-// customer_new_carrier.js — copie logique interne + email
+// customer_new_carrier.js — client-side request + email, using SOWRULES.newCarrier
 
-/* 1) Collect: identique à ton script interne */
 function collectNewCarrierForm() {
   const features =
     Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value)
     .concat(Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value));
 
   return {
-    clientName: document.getElementById("clientName")?.value,
-    featureInterest: document.getElementById("featureInterest")?.value,
-    email: document.getElementById("email")?.value,
-    carrierName: document.getElementById("carrierName")?.value,
-    carrierOther: document.getElementById("carrierOther")?.value,
-    alreadyUsed: document.getElementById("alreadyUsed")?.value,
-    zEnhancements: parseInt(document.getElementById("zEnhancements")?.value) || 0,
-    onlineOrOffline: document.getElementById("onlineOrOffline")?.value,
+    clientName: document.getElementById("clientName")?.value || "",
+    featureInterest: document.getElementById("featureInterest")?.value || "",
+    email: document.getElementById("email")?.value || "",
+    carrierName: document.getElementById("carrierName")?.value || "",
+    carrierOther: document.getElementById("carrierOther")?.value || "",
+    alreadyUsed: document.getElementById("alreadyUsed")?.value || "",
+    zEnhancements: document.getElementById("zEnhancements")?.value || "",
+    onlineOrOffline: document.getElementById("onlineOrOffline")?.value || "",
     features,
-    sapVersion: document.getElementById("sapVersion")?.value,
-    abapVersion: document.getElementById("abapVersion")?.value,
-    shiperpVersion: document.getElementById("shiperpVersion")?.value,
-    serpcarUsage: document.getElementById("serpcarUsage")?.value,
+    sapVersion: document.getElementById("sapVersion")?.value || "",
+    abapVersion: document.getElementById("abapVersion")?.value || "",
+    shiperpVersion: document.getElementById("shiperpVersion")?.value || "",
+    serpcarUsage: document.getElementById("serpcarUsage")?.value || "",
     systemUsed: ["sys_ecc", "sys_ewm", "sys_tm"]
       .filter(id => document.getElementById(id)?.checked)
       .map(id => document.getElementById(id)?.value),
@@ -28,10 +27,7 @@ function collectNewCarrierForm() {
       .map(id => document.getElementById(id)?.value),
     shipFrom: Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
     shipTo:   Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
-
-    // ⚠️ Comme l’interne : valeur brute du select
-    shipToVolume: document.getElementById("zEnhancements")?.value,
-
+    shipToVolume: document.getElementById("zEnhancements")?.value || "",
     shipmentScreenString: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
       .filter(id => document.getElementById(id)?.checked)
       .map(id => document.getElementById(id)?.value)
@@ -39,29 +35,20 @@ function collectNewCarrierForm() {
   };
 }
 
-/* 2) Estimation: identique à l’interne (appel API & parsing) */
-// customer_new_carrier.js
-// customer_new_carrier.js
-// Requires: config.js, estimation_rules.js, customer_core.js
-
 async function estimateNewCarrier_INTERNAL(payload) {
-  // previously did fetch + JSON parsing here — now delegate
   return await SOWRULES.newCarrier(payload);
 }
 
-
-
-/* 3) Breakdown (optionnel) */
 function ncBreakdownHtml(est) {
   if (!est || !est.details) return "";
   const rows = Object.entries(est.details).slice(0, 8).map(([k,v]) => `
-    <tr><td style="padding:4px;border:1px solid #eee;">${k}</td><td style="padding:4px;border:1px solid #eee;">${v}</td></tr>`).join("");
+    <tr><td style="padding:4px;border:1px solid #eee;">${k}</td>
+        <td style="padding:4px;border:1px solid #eee;">${v}</td></tr>`).join("");
   return `
     <h3 style="margin:12px 0 6px;">Estimation breakdown (partial)</h3>
     <table style="border-collapse:collapse;width:100%;max-width:700px">${rows}</table>`;
 }
 
-/* 4) Bouton */
 window.submitCustomer_NewCarrier = async function () {
   await runCustomerFlow({
     formType: "New Carrier",

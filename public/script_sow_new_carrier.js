@@ -1,31 +1,7 @@
 // script_sow_new_carrier.js (INTERNAL)
-// Uses SOWRULES.newCarrier (central normalization + API call)
+// Collect form → call shared SOWRULES.newCarrier → show result
 
 document.addEventListener("DOMContentLoaded", () => {
-  // 1) Render features (same list as customer)
-  const featuresList = [
-    "Shipping & Labeling",
-    "Rate quoting",
-    "Tracking",
-    "Proof of Delivery",
-    "Hazmat shipping",
-    "End of day manifest",
-    "Create Request for Pickup",
-    "Cancel Request for Pickup",
-    "Address Validation",
-    "Electronic Trade Documents"
-  ];
-  const container = document.getElementById("features");
-  if (container) {
-    featuresList.forEach((feature) => {
-      const label = document.createElement("label");
-      label.innerHTML =
-        `<input type="checkbox" class="feature-box" value="${feature}"> ${feature}`;
-      container.appendChild(label);
-    });
-  }
-
-  // 2) Calculate button
   document.getElementById("btnCalc")?.addEventListener("click", async () => {
     const resultBox = document.getElementById("resultBox");
 
@@ -39,9 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
       zEnhancements: document.getElementById("zEnhancements")?.value || "",
       onlineOrOffline: document.getElementById("onlineOrOffline")?.value || "",
 
-      // features from internal renderer
-      features: Array.from(document.querySelectorAll("input.feature-box:checked"))
-        .map(el => el.value),
+      // ✅ same as customer: read the statically-coded checkboxes
+      features: Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value),
 
       sapVersion: document.getElementById("sapVersion")?.value || "",
       abapVersion: document.getElementById("abapVersion")?.value || "",
@@ -68,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     try {
-      const est = await SOWRULES.newCarrier(payload);
+      const est = await SOWRULES.newCarrier(payload); // shared normalization + API
       if (est?.total_effort != null) {
         resultBox.textContent = `Estimated Effort: ${est.total_effort} hours`;
         resultBox.style.color = "green";

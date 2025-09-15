@@ -1,9 +1,9 @@
 // estimation_rules.js
-// Source unique pour client + interne : normalisation + calcul.
-// Requiert: config.js (expose window.SOWCFG)
+// Single source for client + internal: normalization + compute.
+// Requires: config.js (window.SOWCFG)
 
 window.SOWRULES = (function () {
-  // ---------- helpers ----------
+  // ---- helpers ----
   function safeParseJson(text) {
     try { return JSON.parse(text); } catch {
       const s = text.indexOf("{"), e = text.lastIndexOf("}");
@@ -24,14 +24,9 @@ window.SOWRULES = (function () {
     return map[k] ?? val;
   }
 
-  // bucketise "Only 1" / "2 to 5" / "More than 10" + support valeurs numériques
   function resolveWeight(map, raw) {
     if (!map) return { key: undefined, value: 0 };
-
-    // 1) Exact match
     if (raw in map) return { key: raw, value: map[raw] };
-
-    // 2) Numérique → trouver le bon intervalle
     const n = Number(raw);
     if (!Number.isNaN(n)) {
       let best;
@@ -53,80 +48,65 @@ window.SOWRULES = (function () {
       }
       if (best) return best;
     }
-
-    // 3) défaut
     if ("default" in map) return { key: "default", value: map.default };
     return { key: undefined, value: 0 };
   }
 
-  // ---------- Normalisation centralisée: New Carrier ----------
-// ---------- Normalisation centralisée: New Carrier ----------
-function normalizeNewCarrierPayload(p, cfgAll) {
-  const out = { ...p };
+  // ---- New Carrier normalization (centralized) ----
+  function normalizeNewCarrierPayload(p, cfgAll) {
+    const out = { ...p };
 
-  // nombres
-  out.zEnhancements = Number(out.zEnhancements ?? 0) || 0;
+    // numbers
+    out.zEnhancements = Number(out.zEnhancements ?? 0) || 0;
 
-  // alias de clés -> valeurs canoniques Yes/No
-  const yesNo = v => {
-    const s = String(v ?? "").trim().toLowerCase();
-    if (["yes","oui","true","1"].includes(s)) return "Yes";
-    if (["no","non","false","0"].includes(s))  return "No";
-    return v ?? "";
-  };
+    // yes/no canon
+    const yesNo = v => {
+      const s = String(v ?? "").trim().toLowerCase();
+      if (["yes","oui","true","1"].includes(s)) return "Yes";
+      if (["no","non","false","0"].includes(s))  return "No";
+      return v ?? "";
+    };
 
-  // unify alreadyUsed / serpcarUsage
-  if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
-  if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
-  out.alreadyUsed   = yesNo(out.alreadyUsed);
-  out.serpcarUsage  = yesNo(out.serpcarUsage);
+    // unify alreadyUsed / serpcarUsage
+    if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
+    if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
+    out.alreadyUsed  = yesNo(out.alreadyUsed);
+    out.serpcarUsage = yesNo(out.serpcarUsage);
 
-  // alias Online/Offline
-  if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
+    // alias Online/Offline
+    if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
 
-  // ⚙️ override global depuis config
-  const forced = cfgAll?.newCarrier?.forceOnlineOffline;
-  if (forced === "Online" || forced === "Offline") {
-    out.onlineOrOffline = forced;
-  } else {
-    // sinon normaliser l'entrée
-    const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
-    if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
-    else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
-    else out.onlineOrOffline = "Offline"; // défaut sûr
+    // hard override from config (guarantees parity)
+    const forced = cfgAll?.newCarrier?.forceOnlineOffline;
+    if (forced === "Online" || forced === "Offline") {
+      out.onlineOrOffline = forced;
+    } else {
+      const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
+      if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
+      else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
+      else out.onlineOrOffline = "Offline";
+    }
+
+    // arrays
+    const arr = v => (Array.isArray(v) ? v : []);
+    out.features        = arr(out.features);
+    out.systemUsed      = arr(out.systemUsed);
+    out.shipmentScreens = arr(out.shipmentScreens);
+    out.shipFrom        = arr(out.shipFrom);
+    out.shipTo          = arr(out.shipTo);
+
+    // reconstruct shipmentScreens from string if needed (customer)
+    if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
+      out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
+    }
+
+    // optional hint for backend
+    out.featuresCount = out.features.length;
+
+    return out;
   }
 
-  // tableaux
-  const arr = v => (Array.isArray(v) ? v : []);
-  out.features        = arr(out.features);
-  out.systemUsed      = arr(out.systemUsed);
-  out.shipmentScreens = arr(out.shipmentScreens);
-  out.shipFrom        = arr(out.shipFrom);
-  out.shipTo          = arr(out.shipTo);
-
-  // reconstituer à partir de la chaîne si besoin (client)
-  if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
-    out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
-  }
-
-  // info utile au backend
-  out.featuresCount = out.features.length;
-
-  // trace minimal (désactive si tu veux)
-  console.log("[NC] NORMALIZED →", {
-    onlineOrOffline: out.onlineOrOffline,
-    alreadyUsed: out.alreadyUsed,
-    serpcarUsage: out.serpcarUsage,
-    shipmentScreens: out.shipmentScreens,
-    featuresCount: out.featuresCount
-  });
-
-  return out;
-}
-
-
-
-  // ---------- Rollout ----------
+  // ---- Rollout ----
   async function rollout(p) {
     const cfgAll = await SOWCFG.get();
     const R  = cfgAll?.rollout || {};
@@ -149,7 +129,7 @@ function normalizeNewCarrierPayload(p, cfgAll) {
     return { total_effort: Number(baseRes.value || 0) + Number(regionV || 0) };
   }
 
-  // ---------- Upgrade ----------
+  // ---- Upgrade ----
   async function upgrade(p) {
     const cfgAll = await SOWCFG.get();
     const U  = cfgAll?.upgrade || {};
@@ -162,9 +142,9 @@ function normalizeNewCarrierPayload(p, cfgAll) {
     const ewm         = normalizeByMap(AL.ewmUsage, p.ewmUsage);
     const modulesUsed = Array.isArray(p.modulesUsed) ? p.modulesUsed : [];
 
-    const vRes = resolveWeight(U.versionWeights || {},         version);
-    const zRes = resolveWeight(U.zEnhancementsWeights || {},   z);
-    const cRes = resolveWeight(U.onlineCarriersWeights || {},  carriers);
+    const vRes = resolveWeight(U.versionWeights || {},        version);
+    const zRes = resolveWeight(U.zEnhancementsWeights || {},  z);
+    const cRes = resolveWeight(U.onlineCarriersWeights || {}, carriers);
     const wE   = (ewm === "Yes") ? (U.ewmWeight ?? 0) : 0;
     const wM   = modulesUsed.length > (U.modulesThreshold ?? 0) ? (U.modulesExtra ?? 0) : 0;
 
@@ -191,34 +171,30 @@ function normalizeNewCarrierPayload(p, cfgAll) {
     };
   }
 
-  // ---------- Other (API) ----------
+  // ---- Other (API) ----
   async function other(payload) {
     const url = (await SOWCFG.get())?.api?.otherUrl ||
       "https://docqa-api.onrender.com/sow-estimate";
-
     const res  = await fetch(url, {
       method: "POST",
       headers: { "Content-Type":"application/json" },
       body: JSON.stringify(payload)
     });
-
     const text = await res.text();
     const data = safeParseJson(text);
     if (!data) return { total_effort: null, details: null };
-
     return {
       total_effort: (data?.from != null && data?.to != null) ? `${data.from}-${data.to}` : null,
       details: data?.details || null
     };
   }
 
-  // ---------- New Carrier (API) ----------
+  // ---- New Carrier (API) ----
   async function newCarrier(payload) {
     const cfg = await SOWCFG.get();
     const url = cfg?.api?.newCarrierUrl ||
       "https://docqa-api.onrender.com/estimate/new_carrier";
 
-    // Normalisation centralisée + défauts
     const norm = normalizeNewCarrierPayload(payload, cfg);
 
     const res  = await fetch(url, {
@@ -226,7 +202,6 @@ function normalizeNewCarrierPayload(p, cfgAll) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(norm)
     });
-
     const text = await res.text();
     const json = safeParseJson(text);
     return {

@@ -5,9 +5,10 @@
   },
   
   "newCarrier": {
-    "forceOnlineOffline": "Offline"
+    "forceOnlineOffline": "Offline",
+    "fixOnlineSign": true
   },
-  
+
   "rollout": {
     "baseHours": {
       "Only 1": 40,

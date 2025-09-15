@@ -26,19 +26,25 @@
     <form id="formNewCarrierInternal" onsubmit="return false;">
       <div class="form-group">
         <label>Client Name
-          <input id="clientName" name="clientName" />
+          <select id="clientName" name="clientName">
+            <option value="">Select client</option>
+            <option value="A.O SMITH CORPORATION">A.O SMITH CORPORATION</option>
+            <option value="ABC">ABC</option>
+            <option value="AGUSTA">AGUSTA</option>
+            <option value="AMER SPORTS EUROPE SERVIC">AMER SPORTS EUROPE SERVIC</option>
+            <option value="AMMANN SCHWEIZ AG">AMMANN SCHWEIZ AG</option>
+            <!-- (add the rest if you have more) -->
+          </select>
         </label>
-        <label>Your email address
-          <input id="email" name="email" type="email" />
-        </label>
-      </div>
-
-      <div class="form-group">
+        
         <label>Carrier Name
-          <input id="carrierName" name="carrierName" />
-        </label>
-        <label>If not listed, type the carrier name
-          <input id="carrierOther" name="carrierOther" />
+          <select id="carrierName" name="carrierName">
+            <option value="">Select carrier</option>
+            <option value="ABFS Class">ABFS Class</option>
+            <option value="AIT Worldwide">AIT Worldwide</option>
+            <option value="Amazon Merchant Fulfillment">Amazon Merchant Fulfillment</option>
+            <!-- (add the rest if you have more) -->
+          </select>
         </label>
       </div>
 

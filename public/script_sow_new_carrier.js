@@ -1,14 +1,27 @@
 document.addEventListener("DOMContentLoaded", () => {
   // (UI code unchanged)
-  const features = [/* ...same list... */];
-  const container = document.getElementById("features");
-  if (container) {
-    features.forEach((feature) => {
-      const label = document.createElement("label");
-      label.innerHTML = `<input type="checkbox" class="feature-box" value="${feature}" /> ${feature}`;
-      container.appendChild(label);
-    });
-  }
+const features = [
+  "Shipping & Labeling",
+  "Rate quoting",
+  "Tracking",
+  "Proof of Delivery",
+  "Hazmat shipping",
+  "End of day manifest",
+  "Create Request for Pickup",
+  "Cancel Request for Pickup",
+  "Address Validation",
+  "Electronic Trade Documents"
+];
+
+const container = document.getElementById("features");
+if (container) {
+  features.forEach((feature) => {
+    const label = document.createElement("label");
+    label.innerHTML = `<input type="checkbox" class="feature-box" value="${feature}"> ${feature}`;
+    container.appendChild(label);
+  });
+}
+
 
   window.submitEstimate = async function () {
     const form = {

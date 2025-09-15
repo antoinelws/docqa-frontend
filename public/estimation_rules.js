@@ -212,51 +212,77 @@ window.SOWRULES = (function () {
     };
   }
 
-  // -------------------- New Carrier (API) --------------------
-  async function newCarrier(payload) {
-    const cfg = await SOWCFG.get();
-    const url = cfg?.api?.newCarrierUrl ||
-      "https://docqa-api.onrender.com/estimate/new_carrier";
+  // ---------- New Carrier (API) ----------
+async function newCarrier(payload) {
+  const cfg = await SOWCFG.get();
+  const url = cfg?.api?.newCarrierUrl ||
+    "https://docqa-api.onrender.com/estimate/new_carrier";
 
-    // 1) normalize
-    const norm = normalizeNewCarrierPayload(payload, cfg);
+  // 1) Normaliser tout
+  const norm = normalizeNewCarrierPayload(payload, cfg);
 
-    // 2) call API
-    const res  = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(norm)
-    });
-    const text = await res.text();
-    const json = safeParseJson(text) || {};
+  // 2) Construire le body EXACT attendu par l'API (pas de champs extra)
+  const body = {
+    carrierName:        String(norm.carrierName ?? ""),
+    sapVersion:         String(norm.sapVersion ?? ""),
+    abapVersion:        String(norm.abapVersion ?? ""),
+    zEnhancements:      Number(norm.zEnhancements ?? 0),        // int
+    onlineOrOffline:    String(norm.onlineOrOffline ?? ""),
+    features:           Array.isArray(norm.features) ? norm.features : [],
+    systemUsed:         Array.isArray(norm.systemUsed) ? norm.systemUsed : [],
+    shipmentScreens:    Array.isArray(norm.shipmentScreens) ? norm.shipmentScreens : [],
+    serpcarUsage:       String(norm.serpcarUsage ?? ""),
+    shipFrom:           Array.isArray(norm.shipFrom) ? norm.shipFrom : [],
+    shipToVolume:       String(
+                          // ton formulaire stocke ce "volume" dans zEnhancements (liste: Less than 10, …)
+                          norm.shipToVolume ?? norm.zEnhancementsString ?? norm.zEnhancements ?? ""
+                        ),
+    shipTo:             Array.isArray(norm.shipTo) ? norm.shipTo : [],
+    shiperpVersion:     String(norm.shiperpVersion ?? ""),
+    shipmentScreenString: String(
+                          norm.shipmentScreenString ??
+                          (Array.isArray(norm.shipmentScreens) ? norm.shipmentScreens.join(", ") : "")
+                        ),
+  };
 
-    // 3) SHIM: fix Online sign if backend returns the opposite (optional)
-    try {
-      const fix = cfg?.newCarrier?.fixOnlineSign;
-      if (fix && json && json.details && typeof json.total_effort === "number") {
-        const isOnline = String(norm.onlineOrOffline).toLowerCase() === "online";
-        const e23 = Number(json.details.E23_OnlineImpact ?? 0);
+  // 3) Appel API
+  const res  = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
 
-        // Intended behavior: Online adds +X; Offline is 0 (or -X)
-        if (isOnline && e23 < 0) {
-          const delta = Math.abs(e23) * 2;         // -X -> +X  => +2X
-          json.details.E23_OnlineImpact = Math.abs(e23);
-          json.total_effort += delta;
-        } else if (!isOnline && e23 > 0) {
-          const delta = Math.abs(e23) * 2;         // +X -> -X  => -2X
-          json.details.E23_OnlineImpact = -Math.abs(e23);
-          json.total_effort = Math.max(0, json.total_effort - delta);
-        }
-      }
-    } catch { /* no-op */ }
-
-    // 4) return
-    return {
-      total_effort: json?.total_effort ?? null,
-      details: json?.details || null
-    };
+  // Debug utile si 4xx/5xx
+  const text = await res.text();
+  if (!res.ok) {
+    console.warn("API 4xx/5xx:", res.status, text);
+    return { total_effort: null, details: null };
   }
 
-  // API
-  return { rollout, upgrade, other, newCarrier };
-})();
+  // 4) Parse défensif
+  const json = safeParseJson(text);
+
+  // (option) garde-fou de signe pour E23 si activé dans config
+  try {
+    const fix = (await SOWCFG.get())?.newCarrier?.fixOnlineSign;
+    if (fix && json && json.details && typeof json.total_effort === "number") {
+      const isOnline = String(norm.onlineOrOffline).toLowerCase() === "online";
+      const e23 = Number(json.details.E23_OnlineImpact ?? 0);
+      if (isOnline && e23 < 0) {
+        const delta = Math.abs(e23) * 2;
+        json.details.E23_OnlineImpact = Math.abs(e23);
+        json.total_effort += delta;
+      } else if (!isOnline && e23 > 0) {
+        const delta = Math.abs(e23) * 2;
+        json.details.E23_OnlineImpact = -Math.abs(e23);
+        json.total_effort -= delta;
+        if (json.total_effort < 0) json.total_effort = 0;
+      }
+    }
+  } catch {}
+
+  return {
+    total_effort: json?.total_effort ?? null,
+    details: json?.details || null
+  };
+}

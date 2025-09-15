@@ -3,7 +3,7 @@
 // Requires: config.js (window.SOWCFG)
 
 window.SOWRULES = (function () {
-  // ---- helpers ----
+  // ---------------------- helpers ----------------------
   function safeParseJson(text) {
     try { return JSON.parse(text); } catch {
       const s = text.indexOf("{"), e = text.lastIndexOf("}");
@@ -24,9 +24,14 @@ window.SOWRULES = (function () {
     return map[k] ?? val;
   }
 
+  // bucketise strings like "Only 1", "2 to 5", "More than 5", OR accept numbers
   function resolveWeight(map, raw) {
     if (!map) return { key: undefined, value: 0 };
+
+    // exact string match first
     if (raw in map) return { key: raw, value: map[raw] };
+
+    // numeric bucketing
     const n = Number(raw);
     if (!Number.isNaN(n)) {
       let best;
@@ -48,16 +53,29 @@ window.SOWRULES = (function () {
       }
       if (best) return best;
     }
+
     if ("default" in map) return { key: "default", value: map.default };
     return { key: undefined, value: 0 };
   }
 
-  // ---- New Carrier normalization (centralized) ----
+  // ---------------- New Carrier normalization ----------------
   function normalizeNewCarrierPayload(p, cfgAll) {
     const out = { ...p };
 
-    // numbers
-    out.zEnhancements = Number(out.zEnhancements ?? 0) || 0;
+    // backfill carrierName from carrierOther if needed
+    if ((!out.carrierName || !String(out.carrierName).trim()) && out.carrierOther) {
+      out.carrierName = String(out.carrierOther).trim();
+    }
+
+    // zEnhancements: keep buckets as-is; only coerce if truly numeric
+    const zRaw = p?.zEnhancements;
+    if (zRaw === undefined || zRaw === null || zRaw === "") {
+      out.zEnhancements = "";
+    } else if (!isNaN(Number(zRaw)) && String(zRaw).trim() !== "") {
+      out.zEnhancements = Number(zRaw);
+    } else {
+      out.zEnhancements = String(zRaw);
+    }
 
     // yes/no canon
     const yesNo = v => {
@@ -76,7 +94,7 @@ window.SOWRULES = (function () {
     // alias Online/Offline
     if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
 
-    // hard override from config (guarantees parity)
+    // hard override from config (keeps parity if you want)
     const forced = cfgAll?.newCarrier?.forceOnlineOffline;
     if (forced === "Online" || forced === "Offline") {
       out.onlineOrOffline = forced;
@@ -84,7 +102,7 @@ window.SOWRULES = (function () {
       const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
       if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
       else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
-      else out.onlineOrOffline = "Offline";
+      else out.onlineOrOffline = "Offline"; // safe default
     }
 
     // arrays
@@ -95,18 +113,21 @@ window.SOWRULES = (function () {
     out.shipFrom        = arr(out.shipFrom);
     out.shipTo          = arr(out.shipTo);
 
-    // reconstruct shipmentScreens from string if needed (customer)
+    // reconstruct shipmentScreens from string if needed (customer pages)
     if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
       out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
     }
 
-    // optional hint for backend
-    out.featuresCount = out.features.length;
+    // if still empty, default 1 screen so totals don't collapse unexpectedly
+    if (!out.shipmentScreens || out.shipmentScreens.length === 0) {
+      out.shipmentScreens = ["Small Parcel Screen"];
+    }
 
+    out.featuresCount = out.features.length;
     return out;
   }
 
-  // ---- Rollout ----
+  // ---------------------- Rollout ----------------------
   async function rollout(p) {
     const cfgAll = await SOWCFG.get();
     const R  = cfgAll?.rollout || {};
@@ -129,7 +150,7 @@ window.SOWRULES = (function () {
     return { total_effort: Number(baseRes.value || 0) + Number(regionV || 0) };
   }
 
-  // ---- Upgrade ----
+  // ---------------------- Upgrade ----------------------
   async function upgrade(p) {
     const cfgAll = await SOWCFG.get();
     const U  = cfgAll?.upgrade || {};
@@ -171,10 +192,11 @@ window.SOWRULES = (function () {
     };
   }
 
-  // ---- Other (API) ----
+  // ----------------------- Other (API) -----------------------
   async function other(payload) {
     const url = (await SOWCFG.get())?.api?.otherUrl ||
       "https://docqa-api.onrender.com/sow-estimate";
+
     const res  = await fetch(url, {
       method: "POST",
       headers: { "Content-Type":"application/json" },
@@ -183,32 +205,58 @@ window.SOWRULES = (function () {
     const text = await res.text();
     const data = safeParseJson(text);
     if (!data) return { total_effort: null, details: null };
+
     return {
       total_effort: (data?.from != null && data?.to != null) ? `${data.from}-${data.to}` : null,
       details: data?.details || null
     };
   }
 
-  // ---- New Carrier (API) ----
+  // -------------------- New Carrier (API) --------------------
   async function newCarrier(payload) {
     const cfg = await SOWCFG.get();
     const url = cfg?.api?.newCarrierUrl ||
       "https://docqa-api.onrender.com/estimate/new_carrier";
 
+    // 1) normalize
     const norm = normalizeNewCarrierPayload(payload, cfg);
 
+    // 2) call API
     const res  = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(norm)
     });
     const text = await res.text();
-    const json = safeParseJson(text);
+    const json = safeParseJson(text) || {};
+
+    // 3) SHIM: fix Online sign if backend returns the opposite (optional)
+    try {
+      const fix = cfg?.newCarrier?.fixOnlineSign;
+      if (fix && json && json.details && typeof json.total_effort === "number") {
+        const isOnline = String(norm.onlineOrOffline).toLowerCase() === "online";
+        const e23 = Number(json.details.E23_OnlineImpact ?? 0);
+
+        // Intended behavior: Online adds +X; Offline is 0 (or -X)
+        if (isOnline && e23 < 0) {
+          const delta = Math.abs(e23) * 2;         // -X -> +X  => +2X
+          json.details.E23_OnlineImpact = Math.abs(e23);
+          json.total_effort += delta;
+        } else if (!isOnline && e23 > 0) {
+          const delta = Math.abs(e23) * 2;         // +X -> -X  => -2X
+          json.details.E23_OnlineImpact = -Math.abs(e23);
+          json.total_effort = Math.max(0, json.total_effort - delta);
+        }
+      }
+    } catch { /* no-op */ }
+
+    // 4) return
     return {
       total_effort: json?.total_effort ?? null,
       details: json?.details || null
     };
   }
 
+  // API
   return { rollout, upgrade, other, newCarrier };
 })();

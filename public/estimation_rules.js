@@ -64,44 +64,66 @@ window.SOWRULES = (function () {
 function normalizeNewCarrierPayload(p, cfgAll) {
   const out = { ...p };
 
-  // types
+  // nombres
   out.zEnhancements = Number(out.zEnhancements ?? 0) || 0;
 
-  // alias
+  // alias de clés -> valeurs canoniques Yes/No
+  const yesNo = v => {
+    const s = String(v ?? "").trim().toLowerCase();
+    if (["yes","oui","true","1"].includes(s)) return "Yes";
+    if (["no","non","false","0"].includes(s))  return "No";
+    return v ?? "";
+  };
+
+  // unify alreadyUsed / serpcarUsage
+  if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
+  if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
+  out.alreadyUsed   = yesNo(out.alreadyUsed);
+  out.serpcarUsage  = yesNo(out.serpcarUsage);
+
+  // alias Online/Offline
   if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
 
-  // ⚙️ OVERRIDE GLOBAL (prend toujours le dessus si présent dans la config)
+  // ⚙️ override global depuis config
   const forced = cfgAll?.newCarrier?.forceOnlineOffline;
-  if (forced === 'Online' || forced === 'Offline') {
+  if (forced === "Online" || forced === "Offline") {
     out.onlineOrOffline = forced;
   } else {
-    // sinon on normalise l'entrée telle qu'elle vient
-    if (typeof out.onlineOrOffline === 'string') {
-      const s = out.onlineOrOffline.trim().toLowerCase();
-      out.onlineOrOffline = (s === 'online' || s === 'on-line') ? 'Online'
-                           : (s === 'offline' || s === 'off-line') ? 'Offline'
-                           : out.onlineOrOffline;
-    }
-    if (!out.onlineOrOffline || !/^(Online|Offline)$/i.test(out.onlineOrOffline)) {
-      out.onlineOrOffline = 'Offline'; // défaut sûr
-    }
+    // sinon normaliser l'entrée
+    const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
+    if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
+    else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
+    else out.onlineOrOffline = "Offline"; // défaut sûr
   }
 
   // tableaux
-  out.features        = Array.isArray(out.features) ? out.features : [];
-  out.systemUsed      = Array.isArray(out.systemUsed) ? out.systemUsed : [];
-  out.shipmentScreens = Array.isArray(out.shipmentScreens) ? out.shipmentScreens : [];
-  out.shipFrom        = Array.isArray(out.shipFrom) ? out.shipFrom : [];
-  out.shipTo          = Array.isArray(out.shipTo) ? out.shipTo : [];
+  const arr = v => (Array.isArray(v) ? v : []);
+  out.features        = arr(out.features);
+  out.systemUsed      = arr(out.systemUsed);
+  out.shipmentScreens = arr(out.shipmentScreens);
+  out.shipFrom        = arr(out.shipFrom);
+  out.shipTo          = arr(out.shipTo);
 
-  // reconstitution éventuelle
-  if ((!out.shipmentScreens.length) && typeof out.shipmentScreenString === 'string' && out.shipmentScreenString.trim()) {
+  // reconstituer à partir de la chaîne si besoin (client)
+  if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
     out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
   }
 
+  // info utile au backend
   out.featuresCount = out.features.length;
+
+  // trace minimal (désactive si tu veux)
+  console.log("[NC] NORMALIZED →", {
+    onlineOrOffline: out.onlineOrOffline,
+    alreadyUsed: out.alreadyUsed,
+    serpcarUsage: out.serpcarUsage,
+    shipmentScreens: out.shipmentScreens,
+    featuresCount: out.featuresCount
+  });
+
   return out;
 }
+
 
 
   // ---------- Rollout ----------

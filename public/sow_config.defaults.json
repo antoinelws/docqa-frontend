@@ -3,10 +3,10 @@
     "newCarrierUrl": "https://docqa-api.onrender.com/estimate/new_carrier",
     "otherUrl": "https://docqa-api.onrender.com/sow-estimate"
   },
-  
+
   "newCarrier": {
-    "forceOnlineOffline": null,
-    "fixOnlineSign": false
+    "forceOnlineOffline": null,        // do not override the user’s Online/Offline choice
+    "fixOnlineSign": false             // no sign correction unless you explicitly set true
   },
 
   "rollout": {

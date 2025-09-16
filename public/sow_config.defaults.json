@@ -5,8 +5,8 @@
   },
   
   "newCarrier": {
-    "forceOnlineOffline": "Offline",
-    "fixOnlineSign": true
+    "forceOnlineOffline": null,
+    "fixOnlineSign": false
   },
 
   "rollout": {

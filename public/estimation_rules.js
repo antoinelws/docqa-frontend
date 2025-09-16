@@ -58,48 +58,66 @@ window.SOWRULES = (function () {
     return { key: undefined, value: 0 };
   }
 
-// 1) Normalize everything
-const norm = normalizeNewCarrierPayload(payload, cfg);
+  // ---------------- New Carrier normalization ----------------
+  function normalizeNewCarrierPayload(p, cfgAll) {
+    const out = { ...p };
 
-// Map zEnhancements to a safe integer
-let zInt = 0;
-if (typeof norm.zEnhancements === "number" && Number.isFinite(norm.zEnhancements)) {
-  zInt = norm.zEnhancements;
-} else {
-  const zr = String(norm.zEnhancements ?? "").trim().toLowerCase();
-  if (zr.includes("less than 10") || zr === "0" || zr === "") {
-    zInt = 0;
-  } else {
-    // any other bucket => non-zero for E20 logic ("Fix Fee")
-    zInt = 1;
+    // backfill carrierName from carrierOther if needed
+    if ((!out.carrierName || !String(out.carrierName).trim()) && out.carrierOther) {
+      out.carrierName = String(out.carrierOther).trim();
+    }
+
+    // keep raw bucket or number, don't force int yet
+    out.zEnhancements = p?.zEnhancements ?? "";
+
+    // yes/no canon
+    const yesNo = v => {
+      const s = String(v ?? "").trim().toLowerCase();
+      if (["yes","oui","true","1"].includes(s)) return "Yes";
+      if (["no","non","false","0"].includes(s))  return "No";
+      return v ?? "";
+    };
+
+    // unify alreadyUsed / serpcarUsage
+    if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
+    if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
+    out.alreadyUsed  = yesNo(out.alreadyUsed);
+    out.serpcarUsage = yesNo(out.serpcarUsage);
+
+    // alias Online/Offline
+    if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
+
+    // hard override from config (keeps parity if desired)
+    const forced = cfgAll?.newCarrier?.forceOnlineOffline;
+    if (forced === "Online" || forced === "Offline") {
+      out.onlineOrOffline = forced;
+    } else {
+      const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
+      if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
+      else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
+      else out.onlineOrOffline = "Offline"; // safe default
+    }
+
+    // arrays
+    const arr = v => (Array.isArray(v) ? v : []);
+    out.features        = arr(out.features);
+    out.systemUsed      = arr(out.systemUsed);
+    out.shipmentScreens = arr(out.shipmentScreens);
+    out.shipFrom        = arr(out.shipFrom);
+    out.shipTo          = arr(out.shipTo);
+
+    // reconstruct shipmentScreens from string if needed
+    if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
+      out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
+    }
+
+    if (!out.shipmentScreens || out.shipmentScreens.length === 0) {
+      out.shipmentScreens = ["Small Parcel Screen"];
+    }
+
+    out.featuresCount = out.features.length;
+    return out;
   }
-}
-
-// 2) Build EXACT body expected by API
-const body = {
-  carrierName:        String(norm.carrierName ?? ""),
-  sapVersion:         String(norm.sapVersion ?? ""),
-  abapVersion:        String(norm.abapVersion ?? ""),
-  zEnhancements:      zInt,                         // <-- integer now
-  onlineOrOffline:    String(norm.onlineOrOffline ?? ""),
-  features:           Array.isArray(norm.features) ? norm.features : [],
-  systemUsed:         Array.isArray(norm.systemUsed) ? norm.systemUsed : [],
-  shipmentScreens:    Array.isArray(norm.shipmentScreens) ? norm.shipmentScreens : [],
-  serpcarUsage:       String(norm.serpcarUsage ?? ""),
-  shipFrom:           Array.isArray(norm.shipFrom) ? norm.shipFrom : [],
-  shipToVolume:       String(
-                        norm.shipToVolume ??
-                        norm.zEnhancementsString ??
-                        norm.zEnhancements ?? ""
-                      ),
-  shipTo:             Array.isArray(norm.shipTo) ? norm.shipTo : [],
-  shiperpVersion:     String(norm.shiperpVersion ?? ""),
-  shipmentScreenString: String(
-                        norm.shipmentScreenString ??
-                        (Array.isArray(norm.shipmentScreens) ? norm.shipmentScreens.join(", ") : "")
-                      ),
-};
-
 
   // ---------------------- Rollout ----------------------
   async function rollout(p) {
@@ -173,7 +191,7 @@ const body = {
 
     const res  = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
     const text = await res.text();
@@ -195,12 +213,25 @@ const body = {
     // 1) Normalize everything
     const norm = normalizeNewCarrierPayload(payload, cfg);
 
-    // 2) Build EXACT body expected by API (no extra fields)
+    // 1b) Map zEnhancements to a safe integer
+    let zInt = 0;
+    if (typeof norm.zEnhancements === "number" && Number.isFinite(norm.zEnhancements)) {
+      zInt = norm.zEnhancements;
+    } else {
+      const zr = String(norm.zEnhancements ?? "").trim().toLowerCase();
+      if (zr.includes("less than 10") || zr === "0" || zr === "") {
+        zInt = 0;
+      } else {
+        zInt = 1;
+      }
+    }
+
+    // 2) Build EXACT body expected by API
     const body = {
       carrierName:        String(norm.carrierName ?? ""),
       sapVersion:         String(norm.sapVersion ?? ""),
       abapVersion:        String(norm.abapVersion ?? ""),
-      zEnhancements:      Number(norm.zEnhancements ?? 0), // API expects int here
+      zEnhancements:      zInt, // safe integer
       onlineOrOffline:    String(norm.onlineOrOffline ?? ""),
       features:           Array.isArray(norm.features) ? norm.features : [],
       systemUsed:         Array.isArray(norm.systemUsed) ? norm.systemUsed : [],
@@ -209,8 +240,8 @@ const body = {
       shipFrom:           Array.isArray(norm.shipFrom) ? norm.shipFrom : [],
       shipToVolume:       String(
                             norm.shipToVolume ??
-                            norm.zEnhancementsString ?? // legacy
-                            norm.zEnhancements ?? ""     // bucket text still ok
+                            norm.zEnhancementsString ??
+                            norm.zEnhancements ?? ""
                           ),
       shipTo:             Array.isArray(norm.shipTo) ? norm.shipTo : [],
       shiperpVersion:     String(norm.shiperpVersion ?? ""),

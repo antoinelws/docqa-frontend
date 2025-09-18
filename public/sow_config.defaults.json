@@ -5,8 +5,8 @@
   },
 
   "newCarrier": {
-    "forceOnlineOffline": null,        // do not override the user’s Online/Offline choice
-    "fixOnlineSign": false             // no sign correction unless you explicitly set true
+    "forceOnlineOffline": null,
+    "fixOnlineSign": false
   },
 
   "rollout": {

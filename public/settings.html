@@ -21,6 +21,15 @@
   </div>
 
   <textarea id="editor"></textarea>
+  
+  // ********************* START OF NEW CHANGES SAVE 09/18 **********************
+  <div class="row" style="align-items:center;margin-top:8px">
+  <label><input id="formToggle" type="checkbox"> Use form editor</label>
+  <span class="hint">Switch to a friendly editor for the most common fields.</span>
+</div>
+<div id="formWrap" style="display:none; margin-top:12px; border:1px solid #ddd; padding:12px; border-radius:6px"></div>
+
+  // ********************* END OF NEW CHANGES SAVE 09/18 **********************
 
   <div class="row">
     <button id="loadDefaults">Load defaults</button>
@@ -33,5 +42,175 @@
 
   <script src="config.js"></script>
   <script src="settings.js"></script>
+  // ********************* START OF NEW CHANGES SAVE 09/18 **********************
+  <script>
+(async function () {
+  // Wait for settings.js to put the JSON in the textarea
+  const editor = document.getElementById("editor");
+  const formToggle = document.getElementById("formToggle");
+  const wrap = document.getElementById("formWrap");
+  const saveBtn = document.getElementById("save");
+
+  function h(tag, attrs={}, ...kids){
+    const el = document.createElement(tag);
+    for (const [k,v] of Object.entries(attrs||{})) {
+      if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+      else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v);
+    }
+    for (const k of kids) el.append(k?.nodeType ? k : document.createTextNode(k));
+    return el;
+  }
+
+  function numInput(value=0, step="1"){ const i = h("input",{type:"number", value, step, style:{width:"110px"}}); return i; }
+  function strInput(value=""){ return h("input",{type:"text", value, style:{width:"220px"}}); }
+
+  function table(headers){ 
+    const t = h("table",{style:{width:"100%","border-collapse":"collapse"}});
+    t.append(h("thead",{}, h("tr",{}, ...headers.map(x=>h("th",{style:{textAlign:"left",borderBottom:"1px solid #ddd",padding:"6px 4px"}}, x)))));
+    t.append(h("tbody"));
+    return t;
+  }
+  function row(...cells){
+    return h("tr",{}, ...cells.map(c=>h("td",{style:{padding:"6px 4px",borderBottom:"1px solid #f0f0f0"}}, c)));
+  }
+
+  function kvNumberTable(title, obj){
+    const t = table([title+" (label)","Hours / weight",""]);
+    const tbody = t.querySelector("tbody");
+    const addRow = (k="", v=0) => {
+      const kIn = strInput(k), vIn = numInput(v);
+      const del = h("button",{type:"button",onclick(){ tr.remove(); }}, "Delete");
+      const tr = row(kIn, vIn, del);
+      tbody.append(tr);
+    };
+    Object.entries(obj||{}).forEach(([k,v])=>addRow(k, v));
+    const add = h("button",{type:"button",onclick(){ addRow(); }}, "Add");
+    return { el: h("div",{}, t, h("div",{style:{marginTop:"6px"}}, add)),
+             read(){ 
+               const out = {};
+               tbody.querySelectorAll("tr").forEach(tr=>{
+                 const [kIn,vIn] = tr.querySelectorAll("input");
+                 const key = kIn.value.trim();
+                 const val = Number(vIn.value);
+                 if (key && isFinite(val)) out[key] = val;
+               });
+               return out;
+             } };
+  }
+
+  function numberField(label, value, step="1"){
+    const input = numInput(value, step);
+    return { el: h("label",{style:{display:"flex",gap:"8px",alignItems:"center"}}, h("span",{style:{width:"240px"}}, label), input),
+             read(){ return Number(input.value); } };
+  }
+
+  function rangeFields(range){
+    const low = numInput(range?.low ?? 0.8, "0.01");
+    const high = numInput(range?.high ?? 1.2, "0.01");
+    return { el: h("div",{}, 
+              h("label",{style:{display:"flex",gap:"8px",alignItems:"center"}}, h("span",{style:{width:"240px"}},"Range low (<1)"), low),
+              h("label",{style:{display:"flex",gap:"8px",alignItems:"center",marginTop:"6px"}}, h("span",{style:{width:"240px"}},"Range high (>1)"), high)
+            ),
+            read(){ return { low: Number(low.value), high: Number(high.value) }; } };
+  }
+
+  // Build form UI from current JSON
+  function renderForm(){
+    let cfg;
+    try { cfg = JSON.parse(editor.value || "{}"); } catch { cfg = {}; }
+
+    wrap.innerHTML = ""; // reset
+
+    // Sections
+    const rf = rangeFields(cfg.ui?.rangeFactor);
+
+    const rolloutBase = kvNumberTable("Rollout baseHours", cfg.rollout?.basehours || cfg.rollout?.baseHours);
+    const rolloutRegion = kvNumberTable("Rollout regionExtra", cfg.rollout?.regionExtra || {});
+    const rolloutBlue = numberField("Rollout blueprintHours", cfg.rollout?.blueprintHours ?? cfg.rollout?.blueprinthours ?? 16);
+
+    const upVer = kvNumberTable("Upgrade versionWeights", cfg.upgrade?.versionWeights || {});
+    const upZ   = kvNumberTable("Upgrade zEnhancementsWeights", cfg.upgrade?.zEnhancementsWeights || {});
+    const upCar = kvNumberTable("Upgrade onlineCarriersWeights", cfg.upgrade?.onlineCarriersWeights || {});
+    const upEwm = numberField("Upgrade ewmWeight", cfg.upgrade?.ewmWeight ?? 50);
+    const upModT= numberField("Upgrade modulesThreshold", cfg.upgrade?.modulesThreshold ?? 3);
+    const upModE= numberField("Upgrade modulesExtra", cfg.upgrade?.modulesExtra ?? 40);
+    const upBase= numberField("Upgrade baseEffort", cfg.upgrade?.baseEffort ?? 8);
+    const upIntB= numberField("Upgrade integrationBase", cfg.upgrade?.integrationBase ?? 16);
+    const upIntC= numberField("Upgrade integrationCoeff", cfg.upgrade?.integrationCoeff ?? 0.1, "0.01");
+    const upTstB= numberField("Upgrade testingBase", cfg.upgrade?.testingBase ?? 8);
+    const upTstC= numberField("Upgrade testingCoeff", cfg.upgrade?.testingCoeff ?? 0.2, "0.01");
+    const upTrain= numberField("Upgrade training", cfg.upgrade?.training ?? 40);
+    const upDoc  = numberField("Upgrade documentation", cfg.upgrade?.documentation ?? 32);
+    const upCore = numberField("Upgrade coreFactor", cfg.upgrade?.coreFactor ?? 0.2, "0.01");
+
+    wrap.append(
+      h("h3",{},"Display"),
+      rf.el,
+      h("h3",{style:{marginTop:"16px"}},"Rollout"),
+      rolloutBase.el, rolloutRegion.el, rolloutBlue.el,
+      h("h3",{style:{marginTop:"16px"}},"Upgrade"),
+      upVer.el, upZ.el, upCar.el,
+      upEwm.el, upModT.el, upModE.el,
+      upBase.el, upIntB.el, upIntC.el,
+      upTstB.el, upTstC.el, upTrain.el, upDoc.el, upCore.el
+    );
+
+    // Hook Save button: when in form mode, save fields back to JSON cleanly
+    saveBtn.onclick = () => {
+      try {
+        // Start from existing cfg to keep untouched sections (api, aliases, email…)
+        const next = JSON.parse(editor.value || "{}");
+
+        next.ui = next.ui || {};
+        next.ui.rangeFactor = rf.read();
+
+        next.rollout = next.rollout || {};
+        next.rollout.baseHours = rolloutBase.read();
+        next.rollout.regionExtra = rolloutRegion.read();
+        next.rollout.blueprintHours = rolloutBlue.read();
+
+        next.upgrade = next.upgrade || {};
+        next.upgrade.versionWeights = upVer.read();
+        next.upgrade.zEnhancementsWeights = upZ.read();
+        next.upgrade.onlineCarriersWeights = upCar.read();
+        next.upgrade.ewmWeight = upEwm.read();
+        next.upgrade.modulesThreshold = upModT.read();
+        next.upgrade.modulesExtra = upModE.read();
+        next.upgrade.baseEffort = upBase.read();
+        next.upgrade.integrationBase = upIntB.read();
+        next.upgrade.integrationCoeff = upIntC.read();
+        next.upgrade.testingBase = upTstB.read();
+        next.upgrade.testingCoeff = upTstC.read();
+        next.upgrade.training = upTrain.read();
+        next.upgrade.documentation = upDoc.read();
+        next.upgrade.coreFactor = upCore.read();
+
+        // reflect to textarea (source of truth for SOWCFG.setLocalOverride in settings.js)
+        editor.value = JSON.stringify(next, null, 2);
+
+        // call the existing Save logic (settings.js)
+        const clickEvt = new Event("click");
+        document.getElementById("save").dispatchEvent(clickEvt);
+      } catch (e) {
+        alert("Could not save form: " + e.message);
+      }
+    };
+  }
+
+  // Toggle
+  formToggle.addEventListener("change", () => {
+    const on = formToggle.checked;
+    wrap.style.display = on ? "block" : "none";
+    if (on) renderForm();
+  });
+
+  // If the user switches to form mode after editing JSON, re-render to reflect it
+  editor.addEventListener("input", () => {
+    if (formToggle.checked) renderForm();
+  });
+})();
+</script>
+// ********************* END OF NEW CHANGES SAVE 09/18 **********************
 </body>
 </html>

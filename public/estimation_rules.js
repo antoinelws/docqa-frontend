@@ -101,6 +101,10 @@ window.SOWRULES = (function () {
     // arrays
     const arr = v => (Array.isArray(v) ? v : []);
     out.features        = arr(out.features);
+    // If features not provided as array, try to split from a comma/semicolon string (e.g., featureInterest)
+    if ((!out.features || out.features.length === 0) && typeof out.featureInterest === "string") {
+      out.features = out.featureInterest.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    }
     out.systemUsed      = arr(out.systemUsed);
     out.shipmentScreens = arr(out.shipmentScreens);
     out.shipFrom        = arr(out.shipFrom);

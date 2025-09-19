@@ -41,7 +41,7 @@
   }
 
   async function run() {
-    const resultBox = document.getElementById("resultBox") || document.getElementById("customerResult");
+    const resultBox = document.getElementById("resultBox") || document.getElementById("rolloutResultBox") || document.getElementById("customerResult");
     if (!resultBox) return;
 
     const payload = collectRolloutForm();

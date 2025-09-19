@@ -45,16 +45,37 @@
     };
   }
 
+  function ensureSowrulesReady() {
+    if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") return Promise.resolve();
+    return new Promise(resolve => {
+      const onReady = () => resolve();
+      window.addEventListener("sowrules-ready", onReady, { once: true });
+      // Safety: if the event never fires but SOWRULES appears later
+      const iv = setInterval(() => {
+        if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") {
+          clearInterval(iv);
+          window.removeEventListener("sowrules-ready", onReady);
+          resolve();
+        }
+      }, 50);
+      // Failsafe timeout (5s)
+      setTimeout(() => {
+        clearInterval(iv);
+        resolve();
+      }, 5000);
+    });
+  }
+
   async function run() {
     const resultBox = document.getElementById("resultBox");
     if (!resultBox) return;
 
     const payload = collectNewCarrierForm();
-    // small trace—helps when something returns 0/null
     console.log("[NC INTERNAL] payload:", payload);
 
     try {
-      if (!window.SOWRULES || !SOWRULES.newCarrier) {
+      await ensureSowrulesReady();
+      if (!window.SOWRULES || typeof SOWRULES.newCarrier !== "function") {
         throw new Error("SOWRULES.newCarrier is not available. Make sure estimation_rules.js is loaded before this script.");
       }
 

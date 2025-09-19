@@ -303,6 +303,41 @@ function normalizeNewCarrierPayload(p, cfgAll) {
   };
 })();
 
+  // ---- Rollout: add hours per block of features (config driven) ----
+(function enhanceRolloutWithFeatureSteps() {
+  if (!window.SOWRULES || !SOWRULES.rollout) return;
+  if (SOWRULES.__rolloutFeatureStepsPatched) return;
+  SOWRULES.__rolloutFeatureStepsPatched = true;
+
+  const original = SOWRULES.rollout;
+
+  SOWRULES.rollout = async function (payload) {
+    const cfg = await SOWCFG.get();
+    const res = await original.call(SOWRULES, payload);
+
+    const p = normalizeNewCarrierPayload(payload, cfg); // reuse same normalization to count features
+    const stepCfg = cfg.rollout?.featureStep || { size: 3, increment: 12 };
+    const size = Math.max(1, Number(stepCfg.size) || 3);
+    const inc  = Number(stepCfg.increment) || 12;
+
+    const featureCount = (p.features || []).length;
+    const extraSteps = Math.max(0, Math.floor((featureCount - 1) / size));
+    const extraHours = extraSteps * inc;
+
+    if (typeof res === "number") return res + extraHours;
+
+    if (res && typeof res === "object") {
+      res.hours = (res.hours || 0) + extraHours;
+      if (Array.isArray(res.details)) {
+        res.details.push(`+${extraHours}h for ${extraSteps} feature block(s)`);
+      }
+      return res;
+    }
+
+    return extraHours;
+  };
+})();
+
   // ---- expose public API
   return { rollout, upgrade, other, newCarrier: SOWRULES.newCarrier };
 

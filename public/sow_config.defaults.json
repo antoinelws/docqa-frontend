@@ -6,7 +6,8 @@
 
   "newCarrier": {
     "forceOnlineOffline": null,
-    "fixOnlineSign": false
+    "fixOnlineSign": false,
+    "featureStep": { "size": 3, "increment": 12 }
   },
 
   "rollout": {

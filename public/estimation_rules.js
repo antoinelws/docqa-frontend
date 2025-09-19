@@ -1,4 +1,4 @@
-  // estimation_rules.js
+// estimation_rules.js
 // Single source for client + internal: normalization + compute.
 // Requires: config.js (window.SOWCFG)
 
@@ -58,65 +58,106 @@ window.SOWRULES = (function () {
     return { key: undefined, value: 0 };
   }
 
- // ---------------- New Carrier normalization ----------------
-function normalizeNewCarrierPayload(p, cfgAll) {
-  const out = { ...p };
+  // ---------------- New Carrier normalization ----------------
+  function normalizeNewCarrierPayload(p, cfgAll) {
+    const out = { ...p };
 
-  // backfill carrierName from carrierOther if needed
-  if ((!out.carrierName || !String(out.carrierName).trim()) && out.carrierOther) {
-    out.carrierName = String(out.carrierOther).trim();
+    // backfill carrierName from carrierOther if needed
+    if ((!out.carrierName || !String(out.carrierName).trim()) && out.carrierOther) {
+      out.carrierName = String(out.carrierOther).trim();
+    }
+
+    // keep raw bucket or number, don't force int yet
+    out.zEnhancements = p?.zEnhancements ?? "";
+
+    // yes/no canon
+    const yesNo = v => {
+      const s = String(v ?? "").trim().toLowerCase();
+      if (["yes","oui","true","1"].includes(s)) return "Yes";
+      if (["no","non","false","0"].includes(s))  return "No";
+      return v ?? "";
+    };
+
+    // unify alreadyUsed / serpcarUsage
+    if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
+    if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
+    out.alreadyUsed  = yesNo(out.alreadyUsed);
+    out.serpcarUsage = yesNo(out.serpcarUsage);
+
+    // alias Online/Offline
+    if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
+
+    // hard override from config (keeps parity if desired)
+    const forced = cfgAll?.newCarrier?.forceOnlineOffline;
+    if (forced === "Online" || forced === "Offline") {
+      out.onlineOrOffline = forced;
+    } else {
+      const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
+      if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
+      else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
+      else out.onlineOrOffline = "Offline"; // safe default
+    }
+
+    // arrays
+    const arr = v => (Array.isArray(v) ? v : []);
+    out.features        = arr(out.features);
+    out.systemUsed      = arr(out.systemUsed);
+    out.shipmentScreens = arr(out.shipmentScreens);
+    out.shipFrom        = arr(out.shipFrom);
+    out.shipTo          = arr(out.shipTo);
+
+    // reconstruct shipmentScreens from string if needed
+    if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
+      out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
+    }
+    if (!out.shipmentScreens || out.shipmentScreens.length === 0) {
+      out.shipmentScreens = ["Small Parcel Screen"];
+    }
+
+    out.featuresCount = out.features.length;
+    return out;
   }
 
-  // keep raw bucket or number, don't force int yet
-  out.zEnhancements = p?.zEnhancements ?? "";
+  // ---------------------- Rollout (frontend math) ----------------------
+  // NOTE: If you already had a different rollout implementation, keep its logic
+  // and only keep the "feature-step" addition at the end.
+  async function rollout(p) {
+    const cfgAll = await SOWCFG.get();
+    const R  = cfgAll?.rollout || {};
+    const UI = cfgAll?.ui || {};
+    const AL = cfgAll?.aliases?.rollout || {};
 
-  // yes/no canon
-  const yesNo = v => {
-    const s = String(v ?? "").trim().toLowerCase();
-    if (["yes","oui","true","1"].includes(s)) return "Yes";
-    if (["no","non","false","0"].includes(s))  return "No";
-    return v ?? "";
-  };
+    // Normalize inputs via aliases (string labels/numbers allowed)
+    const siteCount      = normalizeByMap(AL.siteCount, p.siteCount);
+    const shipToRegion   = normalizeByMap(AL.shipToRegion, p.shipToRegion);
+    const blueprintNeed  = normalizeByMap(AL.blueprintNeeded, p.blueprintNeeded);
 
-  // unify alreadyUsed / serpcarUsage
-  if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
-  if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
-  out.alreadyUsed  = yesNo(out.alreadyUsed);
-  out.serpcarUsage = yesNo(out.serpcarUsage);
+    // Base hours from site count bucket
+    const baseRes   = resolveWeight(R.baseHours || {}, siteCount);
+    const regionRes = resolveWeight(R.regionExtra || {}, shipToRegion);
+    const blueprint = (String(blueprintNeed).toLowerCase() === "yes") ? (R.blueprintHours ?? 0) : 0;
 
-  // alias Online/Offline
-  if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
+    let total = (baseRes.value || 0) + (regionRes.value || 0) + blueprint;
 
-  // hard override from config (keeps parity if desired)
-  const forced = cfgAll?.newCarrier?.forceOnlineOffline;
-  if (forced === "Online" || forced === "Offline") {
-    out.onlineOrOffline = forced;
-  } else {
-    const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
-    if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
-    else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
-    else out.onlineOrOffline = "Offline"; // safe default
+    // Feature-step addition (config-driven)
+    const norm = normalizeNewCarrierPayload(p, cfgAll); // reuse to count features
+    const stepCfg = R.featureStep || { size: 3, increment: 12 };
+    const size = Math.max(1, Number(stepCfg.size) || 3);
+    const inc  = Number(stepCfg.increment) || 12;
+    const featureCount = (norm.features || []).length;
+    const extraSteps = Math.max(0, Math.floor((featureCount - 1) / size));
+    const extraHours = extraSteps * inc;
+
+    total += extraHours;
+
+    return {
+      range_base:   rngFromCfg(UI, baseRes.value || 0),
+      range_region: rngFromCfg(UI, regionRes.value || 0),
+      range_blueprint: rngFromCfg(UI, blueprint),
+      range_features: rngFromCfg(UI, extraHours),
+      range_total:  rngFromCfg(UI, total)
+    };
   }
-
-  // arrays
-  const arr = v => (Array.isArray(v) ? v : []);
-  out.features        = arr(out.features);
-  out.systemUsed      = arr(out.systemUsed);
-  out.shipmentScreens = arr(out.shipmentScreens);
-  out.shipFrom        = arr(out.shipFrom);
-  out.shipTo          = arr(out.shipTo);
-
-  // reconstruct shipmentScreens from string if needed
-  if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
-    out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
-  }
-  if (!out.shipmentScreens || out.shipmentScreens.length === 0) {
-    out.shipmentScreens = ["Small Parcel Screen"];
-  }
-
-  out.featuresCount = out.features.length;
-  return out;
-}
 
   // ---------------------- Upgrade ----------------------
   async function upgrade(p) {
@@ -262,83 +303,29 @@ function normalizeNewCarrierPayload(p, cfgAll) {
       }
     } catch {}
 
+    // 5) Feature-step addition for New Carrier (config-driven)
+    try {
+      const stepCfg = cfg?.newCarrier?.featureStep || { size: 3, increment: 12 };
+      const size = Math.max(1, Number(stepCfg.size) || 3);
+      const inc  = Number(stepCfg.increment) || 12;
+      const featureCount = (norm.features || []).length;
+      const extraSteps = Math.max(0, Math.floor((featureCount - 1) / size));
+      const extraHours = extraSteps * inc;
+
+      if (json && typeof json.total_effort === "number") {
+        json.total_effort += extraHours;
+        if (json.details && typeof json.details === "object") {
+          json.details.FeatureBlocks = extraHours; // optional detail
+        }
+      }
+    } catch {}
+
     return {
       total_effort: json?.total_effort ?? null,
       details: json?.details || null
     };
   }
 
-  // ---- New Carrier: add hours per block of features (config driven) ----
-(function enhanceNewCarrierWithFeatureSteps() {
-  if (!window.SOWRULES || !SOWRULES.newCarrier) return;
-  if (SOWRULES.__featureStepsPatched) return;
-  SOWRULES.__featureStepsPatched = true;
-
-  const original = SOWRULES.newCarrier;
-
-  SOWRULES.newCarrier = async function (payload) {
-    const cfg = await SOWCFG.get();
-    const res = await original.call(SOWRULES, payload);
-
-    const p = normalizeNewCarrierPayload(payload, cfg);
-    const stepCfg = cfg.newCarrier?.featureStep || { size: 3, increment: 12 };
-    const size = Math.max(1, Number(stepCfg.size) || 3);
-    const inc  = Number(stepCfg.increment) || 12;
-
-    const featureCount = (p.features || []).length;
-    const extraSteps = Math.max(0, Math.floor((featureCount - 1) / size));
-    const extraHours = extraSteps * inc;
-
-    if (typeof res === "number") return res + extraHours;
-
-    if (res && typeof res === "object") {
-      res.hours = (res.hours || 0) + extraHours;
-      if (Array.isArray(res.details)) {
-        res.details.push(`+${extraHours}h for ${extraSteps} feature block(s)`);
-      }
-      return res;
-    }
-
-    return extraHours;
-  };
-})();
-
-  // ---- Rollout: add hours per block of features (config driven) ----
-(function enhanceRolloutWithFeatureSteps() {
-  if (!window.SOWRULES || !SOWRULES.rollout) return;
-  if (SOWRULES.__rolloutFeatureStepsPatched) return;
-  SOWRULES.__rolloutFeatureStepsPatched = true;
-
-  const original = SOWRULES.rollout;
-
-  SOWRULES.rollout = async function (payload) {
-    const cfg = await SOWCFG.get();
-    const res = await original.call(SOWRULES, payload);
-
-    const p = normalizeNewCarrierPayload(payload, cfg); // reuse same normalization to count features
-    const stepCfg = cfg.rollout?.featureStep || { size: 3, increment: 12 };
-    const size = Math.max(1, Number(stepCfg.size) || 3);
-    const inc  = Number(stepCfg.increment) || 12;
-
-    const featureCount = (p.features || []).length;
-    const extraSteps = Math.max(0, Math.floor((featureCount - 1) / size));
-    const extraHours = extraSteps * inc;
-
-    if (typeof res === "number") return res + extraHours;
-
-    if (res && typeof res === "object") {
-      res.hours = (res.hours || 0) + extraHours;
-      if (Array.isArray(res.details)) {
-        res.details.push(`+${extraHours}h for ${extraSteps} feature block(s)`);
-      }
-      return res;
-    }
-
-    return extraHours;
-  };
-})();
-
   // ---- expose public API
-  return { rollout, upgrade, other, newCarrier: SOWRULES.newCarrier };
-
+  return { rollout, upgrade, other, newCarrier };
 })();

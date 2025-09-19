@@ -1,4 +1,17 @@
-// estimation_rules.js
+const carriersRes = resolveWeight(carriersMap, carriersNorm);
+    const carriersHours = carriersRes.value || 0;
+    total += carriersHours;
+
+    // Modules impact (config-driven): count selected modules; first N included
+    const rawModules = p.modulesUsed ?? p.modules ?? p.module ?? p.shiperpModule;
+    let modulesArr = Array.isArray(rawModules) ? rawModules : [];
+    if (!modulesArr.length && typeof rawModules === "string") {
+      modulesArr = rawModules.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    }
+    const perMod = Number(R.modulesPerModule ?? 8);
+    const included = Math.max(0, Number(R.modulesBaseIncluded ?? 1));
+    const extraModules = Math.max(0, modulesArr.length - included) * perMod;
+    total += extraModules;// estimation_rules.js
 // Single source for client + internal: normalization + compute.
 // Requires: config.js (window.SOWCFG)
 
@@ -198,6 +211,7 @@ window.SOWRULES = (function () {
       range_blueprint: rngFromCfg(UI, blueprint),
       range_carriers:  rngFromCfg(UI, carriersHours),
       range_features:  rngFromCfg(UI, extraHours),
+      range_modules:   rngFromCfg(UI, extraModules),
       range_total:     rngFromCfg(UI, total)
     };
   }

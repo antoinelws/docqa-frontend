@@ -1,4 +1,4 @@
-// estimation_rules.js
+  // estimation_rules.js
 // Single source for client + internal: normalization + compute.
 // Requires: config.js (window.SOWCFG)
 
@@ -58,89 +58,65 @@ window.SOWRULES = (function () {
     return { key: undefined, value: 0 };
   }
 
-  // ---------------- New Carrier normalization ----------------
-  function normalizeNewCarrierPayload(p, cfgAll) {
-    const out = { ...p };
+ // ---------------- New Carrier normalization ----------------
+function normalizeNewCarrierPayload(p, cfgAll) {
+  const out = { ...p };
 
-    // backfill carrierName from carrierOther if needed
-    if ((!out.carrierName || !String(out.carrierName).trim()) && out.carrierOther) {
-      out.carrierName = String(out.carrierOther).trim();
-    }
-
-    // keep raw bucket or number, don't force int yet
-    out.zEnhancements = p?.zEnhancements ?? "";
-
-    // yes/no canon
-    const yesNo = v => {
-      const s = String(v ?? "").trim().toLowerCase();
-      if (["yes","oui","true","1"].includes(s)) return "Yes";
-      if (["no","non","false","0"].includes(s))  return "No";
-      return v ?? "";
-    };
-
-    // unify alreadyUsed / serpcarUsage
-    if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
-    if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
-    out.alreadyUsed  = yesNo(out.alreadyUsed);
-    out.serpcarUsage = yesNo(out.serpcarUsage);
-
-    // alias Online/Offline
-    if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
-
-    // hard override from config (keeps parity if desired)
-    const forced = cfgAll?.newCarrier?.forceOnlineOffline;
-    if (forced === "Online" || forced === "Offline") {
-      out.onlineOrOffline = forced;
-    } else {
-      const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
-      if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
-      else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
-      else out.onlineOrOffline = "Offline"; // safe default
-    }
-
-    // arrays
-    const arr = v => (Array.isArray(v) ? v : []);
-    out.features        = arr(out.features);
-    out.systemUsed      = arr(out.systemUsed);
-    out.shipmentScreens = arr(out.shipmentScreens);
-    out.shipFrom        = arr(out.shipFrom);
-    out.shipTo          = arr(out.shipTo);
-
-    // reconstruct shipmentScreens from string if needed
-    if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
-      out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
-    }
-
-    if (!out.shipmentScreens || out.shipmentScreens.length === 0) {
-      out.shipmentScreens = ["Small Parcel Screen"];
-    }
-
-    out.featuresCount = out.features.length;
-    return out;
+  // backfill carrierName from carrierOther if needed
+  if ((!out.carrierName || !String(out.carrierName).trim()) && out.carrierOther) {
+    out.carrierName = String(out.carrierOther).trim();
   }
 
-  // ---------------------- Rollout ----------------------
-  async function rollout(p) {
-    const cfgAll = await SOWCFG.get();
-    const R  = cfgAll?.rollout || {};
-    const UI = cfgAll?.ui || {};
-    const AL = cfgAll?.aliases?.rollout || {};
+  // keep raw bucket or number, don't force int yet
+  out.zEnhancements = p?.zEnhancements ?? "";
 
-    const siteCount       = normalizeByMap(AL.siteCount, p.siteCount);
-    const shipToRegion    = normalizeByMap(AL.shipToRegion, p.shipToRegion);
-    const blueprintNeeded = normalizeByMap(AL.blueprintNeeded, p.blueprintNeeded);
+  // yes/no canon
+  const yesNo = v => {
+    const s = String(v ?? "").trim().toLowerCase();
+    if (["yes","oui","true","1"].includes(s)) return "Yes";
+    if (["no","non","false","0"].includes(s))  return "No";
+    return v ?? "";
+  };
 
-    const baseRes = resolveWeight(R.baseHours || {}, siteCount);
-    const regionV = (R.regionExtra || {})[shipToRegion] ?? (R.regionExtra?.default ?? 0);
+  // unify alreadyUsed / serpcarUsage
+  if (out.alreadyUsed == null && out.serpcarUsage != null) out.alreadyUsed = out.serpcarUsage;
+  if (out.serpcarUsage == null && out.alreadyUsed != null) out.serpcarUsage = out.alreadyUsed;
+  out.alreadyUsed  = yesNo(out.alreadyUsed);
+  out.serpcarUsage = yesNo(out.serpcarUsage);
 
-    if (blueprintNeeded === "No") {
-      return {
-        total_effort: R.blueprintHours ?? 0,
-        note: UI?.notes?.rolloutBlueprint || "Blueprint/Workshop required"
-      };
-    }
-    return { total_effort: Number(baseRes.value || 0) + Number(regionV || 0) };
+  // alias Online/Offline
+  if (out.onlineOffline && !out.onlineOrOffline) out.onlineOrOffline = out.onlineOffline;
+
+  // hard override from config (keeps parity if desired)
+  const forced = cfgAll?.newCarrier?.forceOnlineOffline;
+  if (forced === "Online" || forced === "Offline") {
+    out.onlineOrOffline = forced;
+  } else {
+    const s = String(out.onlineOrOffline ?? "").trim().toLowerCase();
+    if (s === "online" || s === "on-line") out.onlineOrOffline = "Online";
+    else if (s === "offline" || s === "off-line") out.onlineOrOffline = "Offline";
+    else out.onlineOrOffline = "Offline"; // safe default
   }
+
+  // arrays
+  const arr = v => (Array.isArray(v) ? v : []);
+  out.features        = arr(out.features);
+  out.systemUsed      = arr(out.systemUsed);
+  out.shipmentScreens = arr(out.shipmentScreens);
+  out.shipFrom        = arr(out.shipFrom);
+  out.shipTo          = arr(out.shipTo);
+
+  // reconstruct shipmentScreens from string if needed
+  if (!out.shipmentScreens.length && typeof out.shipmentScreenString === "string" && out.shipmentScreenString.trim()) {
+    out.shipmentScreens = out.shipmentScreenString.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  if (!out.shipmentScreens || out.shipmentScreens.length === 0) {
+    out.shipmentScreens = ["Small Parcel Screen"];
+  }
+
+  out.featuresCount = out.features.length;
+  return out;
+}
 
   // ---------------------- Upgrade ----------------------
   async function upgrade(p) {
@@ -292,6 +268,42 @@ window.SOWRULES = (function () {
     };
   }
 
+  // ---- New Carrier: add hours per block of features (config driven) ----
+(function enhanceNewCarrierWithFeatureSteps() {
+  if (!window.SOWRULES || !SOWRULES.newCarrier) return;
+  if (SOWRULES.__featureStepsPatched) return;
+  SOWRULES.__featureStepsPatched = true;
+
+  const original = SOWRULES.newCarrier;
+
+  SOWRULES.newCarrier = async function (payload) {
+    const cfg = await SOWCFG.get();
+    const res = await original.call(SOWRULES, payload);
+
+    const p = normalizeNewCarrierPayload(payload, cfg);
+    const stepCfg = cfg.newCarrier?.featureStep || { size: 3, increment: 12 };
+    const size = Math.max(1, Number(stepCfg.size) || 3);
+    const inc  = Number(stepCfg.increment) || 12;
+
+    const featureCount = (p.features || []).length;
+    const extraSteps = Math.max(0, Math.floor((featureCount - 1) / size));
+    const extraHours = extraSteps * inc;
+
+    if (typeof res === "number") return res + extraHours;
+
+    if (res && typeof res === "object") {
+      res.hours = (res.hours || 0) + extraHours;
+      if (Array.isArray(res.details)) {
+        res.details.push(`+${extraHours}h for ${extraSteps} feature block(s)`);
+      }
+      return res;
+    }
+
+    return extraHours;
+  };
+})();
+
   // ---- expose public API
-  return { rollout, upgrade, other, newCarrier };
+  return { rollout, upgrade, other, newCarrier: SOWRULES.newCarrier };
+
 })();

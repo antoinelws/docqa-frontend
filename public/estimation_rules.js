@@ -151,6 +151,12 @@ window.SOWRULES = (function () {
     total += extraHours;
 
     return {
+      // numeric convenience fields for UIs that expect a single number
+      hours: total,
+      total_hours: total,
+      total_effort: total,
+
+      // ranges for display
       range_base:   rngFromCfg(UI, baseRes.value || 0),
       range_region: rngFromCfg(UI, regionRes.value || 0),
       range_blueprint: rngFromCfg(UI, blueprint),

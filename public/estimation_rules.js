@@ -136,12 +136,44 @@ window.SOWRULES = (function () {
     const shipToRegion   = normalizeByMap(AL.shipToRegion, p.shipToRegion);
     const blueprintNeed  = normalizeByMap(AL.blueprintNeeded, p.blueprintNeeded);
 
+    // Interpret alternate question wording: if user answered the "same process?" question with NO,
+    // we require a blueprint. Accept several field names.
+    const sameProcessRaw = p.sameProcess ?? p.sameRules ?? p.sameAsExisting ?? p.sameShipping;
+    const sameProcessStr = String(normalizeByMap(AL.sameProcess, sameProcessRaw) ?? "").trim().toLowerCase();
+    const saidSame = ["yes","oui","true","1"].includes(sameProcessStr);
+
+    // Decide if blueprint is required
+    let requiresBlueprint = false;
+    if (String(blueprintNeed).toLowerCase() === "yes") requiresBlueprint = true; // legacy field means blueprint needed
+    if (sameProcessStr && !saidSame) requiresBlueprint = true;                     // if they said NO to same process
+
+    // If configured to only show blueprint when process differs, short-circuit and return just blueprint effort
+    const blueprintOnlyWhenDifferent = R.blueprintOnlyWhenDifferent ?? true;
+    if (blueprintOnlyWhenDifferent && requiresBlueprint) {
+      const hours = Number(R.blueprintHours ?? 16);
+      return {
+        hours,
+        total_hours: hours,
+        total_effort: hours,
+        message: "Blueprint is required due to process differences",
+        range_total: rngFromCfg(UI, hours)
+      };
+    }
+
     // Base hours from site count bucket
     const baseRes   = resolveWeight(R.baseHours || {}, siteCount);
     const regionRes = resolveWeight(R.regionExtra || {}, shipToRegion);
-    const blueprint = (String(blueprintNeed).toLowerCase() === "yes") ? (R.blueprintHours ?? 0) : 0;
+    const blueprint = requiresBlueprint ? (R.blueprintHours ?? 0) : 0;
 
     let total = (baseRes.value || 0) + (regionRes.value || 0) + blueprint;
+
+    // Carriers impact (config-driven); support several field names and fall back to upgrade map if rollout map missing
+    const carriersRaw = p.onlineCarriers ?? p.carriers ?? p.carriersCount;
+    const carriersNorm = normalizeByMap(AL.onlineCarriers || AL.carriers, carriersRaw);
+    const carriersMap = R.carriersWeights || R.onlineCarriersWeights || (cfgAll?.upgrade?.onlineCarriersWeights || {});
+    const carriersRes = resolveWeight(carriersMap, carriersNorm);
+    const carriersHours = carriersRes.value || 0;
+    total += carriersHours;
 
     // Feature-step addition (config-driven)
     const norm = normalizeNewCarrierPayload(p, cfgAll); // reuse to count features
@@ -161,11 +193,12 @@ window.SOWRULES = (function () {
       total_effort: total,
 
       // ranges for display
-      range_base:   rngFromCfg(UI, baseRes.value || 0),
-      range_region: rngFromCfg(UI, regionRes.value || 0),
+      range_base:      rngFromCfg(UI, baseRes.value || 0),
+      range_region:    rngFromCfg(UI, regionRes.value || 0),
       range_blueprint: rngFromCfg(UI, blueprint),
-      range_features: rngFromCfg(UI, extraHours),
-      range_total:  rngFromCfg(UI, total)
+      range_carriers:  rngFromCfg(UI, carriersHours),
+      range_features:  rngFromCfg(UI, extraHours),
+      range_total:     rngFromCfg(UI, total)
     };
   }
 

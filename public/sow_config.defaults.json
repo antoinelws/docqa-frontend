@@ -14,11 +14,9 @@
     "baseHours": {
       "Only 1": 40,
       "2 to 5": 120,
-      "More than 5": 200,
-      "featureStep": { "size": 3, "increment": 12 }
-}
-
+      "More than 5": 200
     },
+    "featureStep": { "size": 3, "increment": 12 },
     "regionExtra": {
       "US": 0,
       "default": 16
@@ -48,7 +46,6 @@
     "ewmWeight": 50,
     "modulesThreshold": 3,
     "modulesExtra": 40,
-
     "baseEffort": 8,
     "integrationBase": 16,
     "integrationCoeff": 0.1,

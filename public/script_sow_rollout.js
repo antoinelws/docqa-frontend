@@ -41,7 +41,7 @@
   }
 
   async function run() {
-    const resultBox = document.getElementById("resultBox");
+    const resultBox = document.getElementById("resultBox") || document.getElementById("customerResult");
     if (!resultBox) return;
 
     const payload = collectRolloutForm();
@@ -80,5 +80,10 @@
       e.preventDefault();
       run();
     });
+    document.getElementById("customerBtnCalc")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      run();
+    });
+  });
   });
 })();

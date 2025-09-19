@@ -1,19 +1,40 @@
-const carriersRes = resolveWeight(carriersMap, carriersNorm);
-    const carriersHours = carriersRes.value || 0;
-    total += carriersHours;
-
-    // Modules impact (config-driven): count selected modules; first N included
-    const rawModules = p.modulesUsed ?? p.modules ?? p.module ?? p.shiperpModule;
-    let modulesArr = Array.isArray(rawModules) ? rawModules : [];
-    if (!modulesArr.length && typeof rawModules === "string") {
-      modulesArr = rawModules.split(/[;,]/).map(s => s.trim()).filter(Boolean);
-    }
-    const perMod = Number(R.modulesPerModule ?? 8);
-    const included = Math.max(0, Number(R.modulesBaseIncluded ?? 1));
-    const extraModules = Math.max(0, modulesArr.length - included) * perMod;
-    total += extraModules;// estimation_rules.js
+// estimation_rules.js
 // Single source for client + internal: normalization + compute.
 // Requires: config.js (window.SOWCFG)
+
+// --- Ensure resolveWeight exists even if bundling or load order changes ---
+if (typeof resolveWeight !== "function") {
+  function resolveWeight(map, raw) {
+    if (!map) return { key: undefined, value: 0 };
+
+    // exact string match
+    if (raw in map) return { key: raw, value: map[raw] };
+
+    // numeric bucketing
+    const n = Number(raw);
+    if (!Number.isNaN(n)) {
+      let best;
+      for (const [label, val] of Object.entries(map)) {
+        const L = label.toLowerCase().trim();
+        if (L.startsWith("only ")) {
+          const one = Number(L.replace("only", "").trim());
+          if (n === one) return { key: label, value: val };
+        } else if (L.includes(" to ")) {
+          const [aStr, bStr] = L.split(" to ").map(s => s.replace(/[^0-9.-]/g, ""));
+          const a = Number(aStr), b = Number(bStr);
+          if (!Number.isNaN(a) && !Number.isNaN(b) && n >= a && n <= b) return { key: label, value: val };
+        } else if (L.startsWith("more than")) {
+          const m = Number(L.replace("more than", "").trim());
+          if (!Number.isNaN(m) && n > m) best = { key: label, value: val };
+        }
+      }
+      if (best) return best;
+    }
+
+    if ("default" in map) return { key: "default", value: map.default };
+    return { key: undefined, value: 0 };
+  }
+}
 
 window.SOWRULES = (function () {
   // ---------------------- helpers ----------------------
@@ -35,40 +56,6 @@ window.SOWRULES = (function () {
     if (!map) return val;
     const k = String(val ?? "").trim();
     return map[k] ?? val;
-  }
-
-  // bucketise strings like "Only 1", "2 to 5", "More than 5", OR accept numbers
-  function resolveWeight(map, raw) {
-    if (!map) return { key: undefined, value: 0 };
-
-    // exact string match first
-    if (raw in map) return { key: raw, value: map[raw] };
-
-    // numeric bucketing
-    const n = Number(raw);
-    if (!Number.isNaN(n)) {
-      let best;
-      for (const [label, val] of Object.entries(map)) {
-        const L = label.toLowerCase().trim();
-        if (L.startsWith("only ")) {
-          const one = Number(L.replace("only", "").trim());
-          if (n === one) return { key: label, value: val };
-        } else if (L.includes(" to ")) {
-          const [aStr, bStr] = L.split(" to ").map(s => s.replace(/[^\d.-]/g, ""));
-          const a = Number(aStr), b = Number(bStr);
-          if (!Number.isNaN(a) && !Number.isNaN(b) && n >= a && n <= b) {
-            return { key: label, value: val };
-          }
-        } else if (L.startsWith("more than")) {
-          const m = Number(L.replace("more than", "").trim());
-          if (!Number.isNaN(m) && n > m) best = { key: label, value: val };
-        }
-      }
-      if (best) return best;
-    }
-
-    if ("default" in map) return { key: "default", value: map.default };
-    return { key: undefined, value: 0 };
   }
 
   // ---------------- New Carrier normalization ----------------
@@ -114,7 +101,7 @@ window.SOWRULES = (function () {
     // arrays
     const arr = v => (Array.isArray(v) ? v : []);
     out.features        = arr(out.features);
-    // If features not provided as array, try to split from a comma/semicolon string (e.g., featureInterest)
+    // If features not provided as array, try split from featureInterest
     if ((!out.features || out.features.length === 0) && typeof out.featureInterest === "string") {
       out.features = out.featureInterest.split(/[;,]/).map(s => s.trim()).filter(Boolean);
     }
@@ -136,8 +123,6 @@ window.SOWRULES = (function () {
   }
 
   // ---------------------- Rollout (frontend math) ----------------------
-  // NOTE: If you already had a different rollout implementation, keep its logic
-  // and only keep the "feature-step" addition at the end.
   async function rollout(p) {
     const cfgAll = await SOWCFG.get();
     const R  = cfgAll?.rollout || {};
@@ -188,6 +173,17 @@ window.SOWRULES = (function () {
     const carriersHours = carriersRes.value || 0;
     total += carriersHours;
 
+    // Modules impact (config-driven)
+    const rawModules = p.modulesUsed ?? p.modules ?? p.module ?? p.shiperpModule;
+    let modulesArr = Array.isArray(rawModules) ? rawModules : [];
+    if (!modulesArr.length && typeof rawModules === "string") {
+      modulesArr = rawModules.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    }
+    const perMod = Number(R.modulesPerModule ?? 8);
+    const included = Math.max(0, Number(R.modulesBaseIncluded ?? 1));
+    const extraModules = Math.max(0, modulesArr.length - included) * perMod;
+    total += extraModules;
+
     // Feature-step addition (config-driven)
     const norm = normalizeNewCarrierPayload(p, cfgAll); // reuse to count features
     const stepCfg = R.featureStep || { size: 3, increment: 12 };
@@ -196,22 +192,18 @@ window.SOWRULES = (function () {
     const featureCount = (norm.features || []).length;
     const extraSteps = Math.max(0, Math.floor((featureCount - 1) / size));
     const extraHours = extraSteps * inc;
-
     total += extraHours;
 
     return {
-      // numeric convenience fields for UIs that expect a single number
       hours: total,
       total_hours: total,
       total_effort: total,
-
-      // ranges for display
       range_base:      rngFromCfg(UI, baseRes.value || 0),
       range_region:    rngFromCfg(UI, regionRes.value || 0),
       range_blueprint: rngFromCfg(UI, blueprint),
       range_carriers:  rngFromCfg(UI, carriersHours),
-      range_features:  rngFromCfg(UI, extraHours),
       range_modules:   rngFromCfg(UI, extraModules),
+      range_features:  rngFromCfg(UI, extraHours),
       range_total:     rngFromCfg(UI, total)
     };
   }

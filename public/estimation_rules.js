@@ -256,14 +256,14 @@ window.SOWRULES = (function () {
       serpcarUsage:       String(norm.serpcarUsage ?? ""),
       shipFrom:           Array.isArray(norm.shipFrom) ? norm.shipFrom : [],
       shipToVolume:       String(
-                            norm.shipToVolume ??
-                            norm.zEnhancementsString ??
-                            norm.zEnhancements ?? ""
+                            norm.shipToVolume ||
+                            norm.zEnhancementsString ||
+                            norm.zEnhancements || ""
                           ),
       shipTo:             Array.isArray(norm.shipTo) ? norm.shipTo : [],
       shiperpVersion:     String(norm.shiperpVersion ?? ""),
       shipmentScreenString: String(
-                            norm.shipmentScreenString ??
+                            norm.shipmentScreenString ||
                             (Array.isArray(norm.shipmentScreens) ? norm.shipmentScreens.join(", ") : "")
                           ),
     };
@@ -329,3 +329,6 @@ window.SOWRULES = (function () {
   // ---- expose public API
   return { rollout, upgrade, other, newCarrier };
 })();
+
+// Signal readiness so other scripts can safely wait for SOWRULES
+try { window.dispatchEvent(new Event("sowrules-ready")); } catch {}

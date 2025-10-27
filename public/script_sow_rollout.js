@@ -1,134 +1,181 @@
-// script_sow_rollout.js (INTERNAL/CUSTOMER)
-// Collect form → call shared SOWRULES.rollout → show result
+// script_sow_new_carrier.js (INTERNAL)
+// Collect form → call shared SOWRULES.newCarrier → show result
 // Requires: config.js, estimation_rules.js
 
 (function () {
-  function getVal(id){ return document.getElementById(id)?.value || ""; }
-  function getMulti(id){ return Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value); }
+  // == Defaults: select first option for selects; first radio per group
+  (function applyDefaultInputs() {
+    const onReady = () => {
+      document.querySelectorAll('select').forEach(sel => {
+        const anySelected = Array.from(sel.options).some(o => o.selected);
+        if (!anySelected && sel.options.length) {
+          // For both single- and multi-selects, ensure at least the first option is selected by default
+          sel.options[0].selected = true;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      const groups = new Map();
+      document.querySelectorAll('input[type="radio"]').forEach(r => {
+        if (!groups.has(r.name)) groups.set(r.name, []);
+        groups.get(r.name).push(r);
+      });
+      groups.forEach(list => {
+        if (!list.some(r => r.checked) && list.length) {
+          list[0].checked = true;
+          list[0].dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', onReady);
+    else onReady();
+  })();
 
-function collectRolloutForm() {
-  // helpers
-  const getVal = (idOrName) => {
+  // == Getters
+  function getVal(idOrName) {
+    const byId = document.getElementById(idOrName);
+    if (byId) return byId.value ?? '';
+    const checked = document.querySelector(`input[name="${idOrName}"]:checked`);
+    if (checked) return checked.value ?? '';
+    const sel = document.querySelector(`select[name="${idOrName}"]`);
+    if (sel) return sel.value ?? '';
+    return '';
+  }
+  function getMulti(idOrName) {
     const el = document.getElementById(idOrName);
-    if (el) {
-      if (el.tagName === "SELECT" || el.tagName === "INPUT" || el.tagName === "TEXTAREA") return el.value || "";
-      return el.value || "";
+    if (el && el.tagName === 'SELECT' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value);
+    const sel = document.querySelector(`select[name="${idOrName}"]`);
+    if (sel && sel.multiple) return Array.from(sel.selectedOptions).map(o => o.value);
+    return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(c => c.value);
+  }
+
+  function collectNewCarrierForm() {
+    // FEATURES: keep both legacy checkbox group and name="features"
+    const features = Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value)
+      .concat(Array.from(document.querySelectorAll('input.feature-box:checked')).map(el => el.value));
+
+    // SYSTEMS: support multi or single input variants
+    let systemsUsed = getMulti('systemsUsed');
+    if (!systemsUsed.length) systemsUsed = getMulti('systemUsed');
+    if (!systemsUsed.length) {
+      const one = getVal('whichSystem') || getVal('system') || getVal('erpSystem');
+      if (one) systemsUsed = [String(one)];
     }
-    const radios = document.querySelectorAll(`input[name="${idOrName}"]`);
-    const r = Array.from(radios).find(x => x.checked);
-    if (r) return r.value || "";
-    const any = document.querySelector(`#${idOrName}, [name="${idOrName}"]`);
-    return any?.value || "";
-  };
+    // Keep legacy array too, if UI provides explicit SAP boxes
+    const legacySystemUsed = ["sys_ecc", "sys_ewm", "sys_tm"]
+      .filter(id => document.getElementById(id)?.checked)
+      .map(id => document.getElementById(id).value);
+    if (!systemsUsed.length && legacySystemUsed.length) systemsUsed = legacySystemUsed.slice();
+    const systemsCount = systemsUsed.length || Number(getVal('systemsCount')) || 0;
 
-  const getMulti = (idOrName) => {
-    const el = document.getElementById(idOrName);
-    if (el && el.tagName === "SELECT" && el.multiple) {
-      return Array.from(el.selectedOptions).map(o => o.value);
+    // SHIP FROM / TO locations (may be multi)
+    let shipFormLocation = getMulti('shipFormLocation');
+    if (!shipFormLocation.length) shipFormLocation = Array.from(document.getElementById('shipFrom')?.selectedOptions || []).map(o => o.value);
+    if (!shipFormLocation.length) {
+      const v = getVal('shipFrom') || getVal('formLocation');
+      if (v) shipFormLocation = [String(v)];
     }
-    // fallback: checkboxes group
-    const checks = document.querySelectorAll(`input[name="${idOrName}"]:checked, .${idOrName}.feature-box:checked`);
-    if (checks.length) return Array.from(checks).map(c => c.value);
-    return [];
-  };
 
-  // site & region
-  const siteCount    = getVal("siteCount") || getVal("sites") || getVal("locationCount");
-  const shipToRegion = getVal("shipToRegion") || getVal("region") || getVal("locationRegion");
+    let shipToLocation = getMulti('shipToLocation');
+    if (!shipToLocation.length) shipToLocation = Array.from(document.getElementById('shipTo')?.selectedOptions || []).map(o => o.value);
+    if (!shipToLocation.length) {
+      const v = getVal('shipTo') || getVal('toLocation');
+      if (v) shipToLocation = [String(v)];
+    }
 
-  // modules → features proxy
-  let modulesUsed = getMulti("modulesUsed");
-  if (!modulesUsed.length) modulesUsed = getMulti("moduleUsed");
-  if (!modulesUsed.length) modulesUsed = getMulti("shiperpModule"); // multi-select alt id
-  if (!modulesUsed.length) {
-    const s = getVal("shiperpModule") || getVal("modules") || getVal("module");
-    if (s) modulesUsed = s.split(/[;,]/).map(x => x.trim()).filter(Boolean);
+    // Other optional context
+    const shipToRegion = getVal('shipToRegion') || getVal('region');
+
+    return {
+      // original fields (kept for symmetry / backend)
+      clientName:        document.getElementById("clientName")?.value || "",
+      featureInterest:   document.getElementById("featureInterest")?.value || "",
+      email:             document.getElementById("email")?.value || "",
+      carrierName:       document.getElementById("carrierName")?.value || "",
+      carrierOther:      document.getElementById("carrierOther")?.value || "",
+      alreadyUsed:       document.getElementById("alreadyUsed")?.value || "",
+      zEnhancements:     document.getElementById("zEnhancements")?.value || "",   // keep bucket text
+      onlineOrOffline:   document.getElementById("onlineOrOffline")?.value || "",
+
+      features,
+
+      sapVersion:        document.getElementById("sapVersion")?.value || "",
+      abapVersion:       document.getElementById("abapVersion")?.value || "",
+      shiperpVersion:    document.getElementById("shiperpVersion")?.value || "",
+      serpcarUsage:      document.getElementById("serpcarUsage")?.value || "",
+
+      // legacy capture kept
+      systemUsed: legacySystemUsed,
+      shipmentScreens: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
+        .filter(id => document.getElementById(id)?.checked)
+        .map(id => document.getElementById(id).value),
+
+      shipFrom: Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
+      shipTo:   Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
+
+      // symmetry/customer compatibility
+      shipToVolume: document.getElementById("zEnhancements")?.value || "",
+      shipmentScreenString: ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
+        .filter(id => document.getElementById(id)?.checked)
+        .map(id => document.getElementById(id).value)
+        .join(", "),
+
+      // === NEW standardized fields for rules ===
+      systemsUsed,
+      systemsCount,
+      shipFormLocation,
+      shipToLocation,
+      shipToRegion,
+    };
   }
-
-  // same process? (radio/select/text supported)
-  const sameProcess = getVal("sameProcess") || getVal("sameRules") || getVal("sameAsExisting") || getVal("sameShipping");
-
-  // carriers: accept "1 to 5", "6 to 10", ">10", or a number; normalize for resolveWeight
-  let onlineCarriersRaw = getVal("onlineCarriers") || getVal("carriers") || getVal("carriersCount");
-  let onlineCarriers = onlineCarriersRaw;
-  const m = String(onlineCarriersRaw || "").match(/(\d+)\s*to\s*(\d+)/i);
-  if (m) {
-    onlineCarriers = Number(m[2]);      // borne haute → tombera dans le bon bucket "6 to 10", etc.
-  } else if (/^\s*>\s*(\d+)/.test(String(onlineCarriersRaw || ""))) {
-    const over = Number(String(onlineCarriersRaw).replace(/[^\d]/g, ""));
-    onlineCarriers = over + 1;          // forcer >10 → 11 pour matcher "More than 10"
-  } else if (!Number.isNaN(Number(onlineCarriersRaw))) {
-    onlineCarriers = Number(onlineCarriersRaw);
-  }
-
-  // blueprintNeeded: si absent, déduire de sameProcess
-  let blueprintNeeded = getVal("blueprintNeeded") || getVal("blueprint");
-  if (!blueprintNeeded && sameProcess) {
-    const sp = String(sameProcess).trim().toLowerCase();
-    blueprintNeeded = (["no","non","false","0"].includes(sp)) ? "Yes" : "No";
-  }
-
-  // envoyer aussi features pour featureStep (on réutilise modules)
-  const features = modulesUsed.slice();
-
-  return { siteCount, shipToRegion, modulesUsed, sameProcess, blueprintNeeded, onlineCarriers, features };
-}
-
-
 
   function ensureSowrulesReady() {
-    if (window.SOWRULES && typeof SOWRULES.rollout === "function") return Promise.resolve();
+    if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") return Promise.resolve();
     return new Promise(resolve => {
       const onReady = () => resolve();
       window.addEventListener("sowrules-ready", onReady, { once: true });
       const iv = setInterval(() => {
-        if (window.SOWRULES && typeof SOWRULES.rollout === "function") { clearInterval(iv); resolve(); }
+        if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") {
+          clearInterval(iv);
+          window.removeEventListener("sowrules-ready", onReady);
+          resolve();
+        }
       }, 50);
       setTimeout(() => { clearInterval(iv); resolve(); }, 5000);
     });
   }
 
   async function run() {
-    const resultBox = document.getElementById("resultBox") || document.getElementById("rolloutResultBox") || document.getElementById("customerResult");
+    const resultBox = document.getElementById("resultBox");
     if (!resultBox) return;
 
-    const payload = collectRolloutForm();
-    console.log("[ROLLOUT] payload:", payload);
+    const payload = collectNewCarrierForm();
+    console.log("[NC INTERNAL] payload:", payload);
 
     try {
       await ensureSowrulesReady();
-      if (!window.SOWRULES || typeof SOWRULES.rollout !== "function") throw new Error("SOWRULES.rollout not available");
+      if (!window.SOWRULES || typeof SOWRULES.newCarrier !== "function") {
+        throw new Error("SOWRULES.newCarrier is not available. Make sure estimation_rules.js is loaded before this script.");
+      }
 
-      const est = await SOWRULES.rollout(payload);
-      console.log("[ROLLOUT] response:", est);
+      const est = await SOWRULES.newCarrier(payload);
+      console.log("[NC INTERNAL] response:", est);
 
-      const hours = est?.total_effort ?? est?.total_hours ?? est?.hours;
-      if (hours != null) {
-        resultBox.textContent = `Estimated Effort: ${hours} hours`;
+      if (est && est.total_effort != null) {
+        resultBox.textContent = `Estimated Effort: ${est.total_effort} hours`;
         resultBox.style.color = "green";
       } else {
-        resultBox.textContent = "No total hours returned.";
+        resultBox.textContent = "No total_effort returned.";
         resultBox.style.color = "red";
       }
     } catch (err) {
       console.error(err);
-      resultBox.textContent = `Error while estimating: ${err.message || err}`;
+      resultBox.textContent = `Network or server error: ${err.message || err}`;
       resultBox.style.color = "red";
     }
   }
 
-  // Support both: onclick="submitRolloutEstimate()" and #btnCalc click
-  window.submitRolloutEstimate = async function (e) {
-    try { e && e.preventDefault && e.preventDefault(); } catch {}
-    await run();
-  };
-
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btnCalc")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      run();
-    });
-    document.getElementById("customerBtnCalc")?.addEventListener("click", (e) => {
       e.preventDefault();
       run();
     });

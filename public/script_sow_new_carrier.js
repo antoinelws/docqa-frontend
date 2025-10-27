@@ -1,9 +1,9 @@
 // script_sow_new_carrier.js (INTERNAL)
 // Collect form → call shared SOWRULES.newCarrier → show result
-// Requires: config.js, estimation_rules.js
+// Requires: config.js, estimation_rules.js  (les charger avec "defer" avant ce fichier)
 
 (function () {
-  // -- Defaults: première option pour chaque select, premier radio si rien n'est coché
+  // ---------- Defaults (1er <option> / 1er radio) ----------
   function applyDefaultInputs() {
     document.querySelectorAll("select").forEach(sel => {
       const anySelected = Array.from(sel.options).some(o => o.selected);
@@ -25,33 +25,44 @@
     });
   }
 
-  // -- Getters robustes
+  // ---------- Helpers ----------
+  const cleanList = (arr) => Array.from(new Set((arr || []).map(x => String(x).trim()).filter(Boolean)));
+
   const getVal = (idOrName) => {
     const byId = document.getElementById(idOrName);
     if (byId) return byId.value ?? "";
-    const checked = document.querySelector(`input[name="${idOrName}"]:checked`);
-    if (checked) return checked.value ?? "";
+    const radio = document.querySelector(`input[name="${idOrName}"]:checked`);
+    if (radio) return radio.value ?? "";
     const sel = document.querySelector(`select[name="${idOrName}"]`);
     if (sel) return sel.value ?? "";
     return "";
   };
+
   const getMulti = (idOrName) => {
-    const el = document.getElementById(idOrName);
-    if (el && el.tagName === "SELECT" && el.multiple) return Array.from(el.selectedOptions).map(o => o.value);
+    const byId = document.getElementById(idOrName);
+    if (byId && byId.tagName === "SELECT" && byId.multiple) {
+      return Array.from(byId.selectedOptions).map(o => o.value);
+    }
     const sel = document.querySelector(`select[name="${idOrName}"]`);
-    if (sel && sel.multiple) return Array.from(sel.selectedOptions).map(o => o.value);
-    return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(c => c.value);
+    if (sel && sel.multiple) {
+      return Array.from(sel.selectedOptions).map(o => o.value);
+    }
+    return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(el => el.value);
   };
 
+  // ---------- Collecte New Carrier ----------
   function collectNewCarrierForm() {
-    // FEATURES : union (name='features' + legacy .feature-box), nettoyée & dédoublonnée
-    let features = Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value)
-      .concat(Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value));
-    features = Array.from(new Set(features.filter(Boolean)));
+    // FEATURES: union des 2 styles (name='features' + legacy .feature-box) + support select[name="features"]
+    let features = []
+      .concat(Array.from(document.querySelectorAll(`input[name="features"]:checked`)).map(el => el.value))
+      .concat(Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value))
+      .concat(getMulti("features"));
+    features = cleanList(features);
 
-    // SYSTEMS : multi ou single ; fallback legacy (sys_ecc/sys_ewm/sys_tm)
-    let systemsUsed = getMulti("systemsUsed");
-    if (!systemsUsed.length) systemsUsed = getMulti("systemUsed");
+    // SYSTEMS: multi ou single ; fallback legacy (sys_ecc/sys_ewm/sys_tm)
+    let systemsUsed = []
+      .concat(getMulti("systemsUsed"))
+      .concat(getMulti("systemUsed"));
     if (!systemsUsed.length) {
       const one = getVal("whichSystem") || getVal("system") || getVal("erpSystem");
       if (one) systemsUsed = [String(one)];
@@ -60,37 +71,44 @@
       .filter(id => document.getElementById(id)?.checked)
       .map(id => document.getElementById(id).value);
     if (!systemsUsed.length && legacySystemUsed.length) systemsUsed = legacySystemUsed.slice();
+    systemsUsed = cleanList(systemsUsed);
     const systemsCount = systemsUsed.length || Number(getVal("systemsCount")) || 0;
 
-    // SHIP FROM / TO (multi)
-    let shipFormLocation = getMulti("shipFormLocation");
-    if (!shipFormLocation.length) shipFormLocation = Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(o => o.value);
+    // SHIP FROM (Ship Form Location) — support id, name & select
+    let shipFormLocation = []
+      .concat(getMulti("shipFormLocation"))
+      .concat(Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(o => o.value));
     if (!shipFormLocation.length) {
       const v = getVal("shipFrom") || getVal("formLocation");
       if (v) shipFormLocation = [String(v)];
     }
+    shipFormLocation = cleanList(shipFormLocation);
 
-    let shipToLocation = getMulti("shipToLocation");
-    if (!shipToLocation.length) shipToLocation = Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(o => o.value);
+    // SHIP TO Location — support id, name & select
+    let shipToLocation = []
+      .concat(getMulti("shipToLocation"))
+      .concat(Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(o => o.value));
     if (!shipToLocation.length) {
       const v = getVal("shipTo") || getVal("toLocation");
       if (v) shipToLocation = [String(v)];
     }
+    shipToLocation = cleanList(shipToLocation);
 
     // Shipment screens : checkboxes OU select[name="shipmentScreens"]
     let shipmentScreens = ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
       .filter(id => document.getElementById(id)?.checked)
       .map(id => document.getElementById(id).value);
     if (!shipmentScreens.length) {
-      shipmentScreens = getMulti("shipmentScreens"); // support select multiple
+      shipmentScreens = getMulti("shipmentScreens");
     }
+    shipmentScreens = cleanList(shipmentScreens);
     const shipmentScreenString = shipmentScreens.join(", ");
 
     // Contexte optionnel
     const shipToRegion = getVal("shipToRegion") || getVal("region");
 
     return {
-      // champs existants (compat backend)
+      // === champs existants (compat backend) ===
       clientName:        document.getElementById("clientName")?.value || "",
       featureInterest:   document.getElementById("featureInterest")?.value || "",
       email:             document.getElementById("email")?.value || "",
@@ -123,6 +141,7 @@
     };
   }
 
+  // ---------- SOWRULES ready ----------
   function ensureSowrulesReady() {
     if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") return Promise.resolve();
     return new Promise(resolve => {
@@ -139,11 +158,14 @@
     });
   }
 
+  // ---------- Run ----------
   async function run() {
-    // sécurité : appliquer les defaults juste avant la collecte si besoin
+    // applique les defaults juste avant la collecte, au cas où
     applyDefaultInputs();
 
-    const resultBox = document.getElementById("resultBox");
+    const resultBox =
+      document.getElementById("carrierResultBox") ||
+      document.getElementById("resultBox");
     if (!resultBox) return;
 
     const payload = collectNewCarrierForm();
@@ -173,9 +195,18 @@
     }
   }
 
+  // ---------- Bindings (inline & modernes) ----------
+  // si la page utilise un onclick="submitCarrierEstimate()" ou "submitNewCarrierEstimate()", expose-les :
+  window.submitCarrierEstimate     = run;
+  window.submitNewCarrierEstimate  = run;
+
   document.addEventListener("DOMContentLoaded", () => {
     applyDefaultInputs();
     document.getElementById("btnCalc")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      run();
+    });
+    document.querySelector("#newCarrierForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
       run();
     });

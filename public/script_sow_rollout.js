@@ -6,27 +6,46 @@
   function getVal(id){ return document.getElementById(id)?.value || ""; }
   function getMulti(id){ return Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value); }
 
-  function collectRolloutForm() {
-    // robust across pages / ids
-    const siteCount    = getVal("siteCount") || getVal("sites") || getVal("locationCount");
-    const shipToRegion = getVal("shipToRegion") || getVal("region") || getVal("locationRegion");
+function collectRolloutForm() {
+  // robust across pages / ids
+  const siteCount    = getVal("siteCount") || getVal("sites") || getVal("locationCount");
+  const shipToRegion = getVal("shipToRegion") || getVal("region") || getVal("locationRegion");
 
-    // modules: multi-select or comma string
-    let modulesUsed = getMulti("modulesUsed");
-    if (!modulesUsed.length) modulesUsed = getMulti("moduleUsed");
-    if (!modulesUsed.length) {
-      const s = getVal("shiperpModule") || getVal("modules") || getVal("module");
-      if (s) modulesUsed = s.split(/[;,]/).map(x=>x.trim()).filter(Boolean);
-    }
-
-    // same process ?  (blueprint trigger)
-    const sameProcess = getVal("sameProcess") || getVal("sameRules") || getVal("sameAsExisting") || getVal("sameShipping");
-
-    // carriers selection
-    const onlineCarriers = getVal("onlineCarriers") || getVal("carriers") || getVal("carriersCount");
-
-    return { siteCount, shipToRegion, modulesUsed, sameProcess, onlineCarriers };
+  // modules: multi-select or comma string
+  let modulesUsed = getMulti("modulesUsed");
+  if (!modulesUsed.length) modulesUsed = getMulti("moduleUsed");
+  if (!modulesUsed.length) modulesUsed = getMulti("shiperpModule"); // some pages use multiselect with this id
+  if (!modulesUsed.length) {
+    const s = getVal("shiperpModule") || getVal("modules") || getVal("module");
+    if (s) modulesUsed = s.split(/[;,]/).map(x => x.trim()).filter(Boolean);
   }
+
+  // same process ?  (blueprint trigger)
+  const sameProcess = getVal("sameProcess") || getVal("sameRules") || getVal("sameAsExisting") || getVal("sameShipping");
+
+  // carriers selection (normalize ranges like "3 to 10" → 10)
+  let onlineCarriersRaw = getVal("onlineCarriers") || getVal("carriers") || getVal("carriersCount");
+  let onlineCarriers = onlineCarriersRaw;
+  const m = String(onlineCarriersRaw||"").match(/(\d+)\s*to\s*(\d+)/i);
+  if (m) {
+    onlineCarriers = Number(m[2]);
+  } else if (!Number.isNaN(Number(onlineCarriersRaw))) {
+    onlineCarriers = Number(onlineCarriersRaw);
+  }
+
+  // explicit blueprintNeeded field if present; otherwise derive from sameProcess
+  let blueprintNeeded = getVal("blueprintNeeded") || getVal("blueprint");
+  if (!blueprintNeeded && sameProcess) {
+    const sp = String(sameProcess).trim().toLowerCase();
+    blueprintNeeded = (["no","non","false","0"].includes(sp)) ? "Yes" : "No";
+  }
+
+  // also pass features so feature-step logic can work on Rollout (reuse modules as features proxy)
+  const features = modulesUsed.slice();
+
+  return { siteCount, shipToRegion, modulesUsed, sameProcess, blueprintNeeded, onlineCarriers, features };
+}
+
 
   function ensureSowrulesReady() {
     if (window.SOWRULES && typeof SOWRULES.rollout === "function") return Promise.resolve();

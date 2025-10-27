@@ -7,44 +7,73 @@
   function getMulti(id){ return Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value); }
 
 function collectRolloutForm() {
-  // robust across pages / ids
+  // helpers
+  const getVal = (idOrName) => {
+    const el = document.getElementById(idOrName);
+    if (el) {
+      if (el.tagName === "SELECT" || el.tagName === "INPUT" || el.tagName === "TEXTAREA") return el.value || "";
+      return el.value || "";
+    }
+    const radios = document.querySelectorAll(`input[name="${idOrName}"]`);
+    const r = Array.from(radios).find(x => x.checked);
+    if (r) return r.value || "";
+    const any = document.querySelector(`#${idOrName}, [name="${idOrName}"]`);
+    return any?.value || "";
+  };
+
+  const getMulti = (idOrName) => {
+    const el = document.getElementById(idOrName);
+    if (el && el.tagName === "SELECT" && el.multiple) {
+      return Array.from(el.selectedOptions).map(o => o.value);
+    }
+    // fallback: checkboxes group
+    const checks = document.querySelectorAll(`input[name="${idOrName}"]:checked, .${idOrName}.feature-box:checked`);
+    if (checks.length) return Array.from(checks).map(c => c.value);
+    return [];
+  };
+
+  // site & region
   const siteCount    = getVal("siteCount") || getVal("sites") || getVal("locationCount");
   const shipToRegion = getVal("shipToRegion") || getVal("region") || getVal("locationRegion");
 
-  // modules: multi-select or comma string
+  // modules → features proxy
   let modulesUsed = getMulti("modulesUsed");
   if (!modulesUsed.length) modulesUsed = getMulti("moduleUsed");
-  if (!modulesUsed.length) modulesUsed = getMulti("shiperpModule"); // some pages use multiselect with this id
+  if (!modulesUsed.length) modulesUsed = getMulti("shiperpModule"); // multi-select alt id
   if (!modulesUsed.length) {
     const s = getVal("shiperpModule") || getVal("modules") || getVal("module");
     if (s) modulesUsed = s.split(/[;,]/).map(x => x.trim()).filter(Boolean);
   }
 
-  // same process ?  (blueprint trigger)
+  // same process? (radio/select/text supported)
   const sameProcess = getVal("sameProcess") || getVal("sameRules") || getVal("sameAsExisting") || getVal("sameShipping");
 
-  // carriers selection (normalize ranges like "3 to 10" → 10)
+  // carriers: accept "1 to 5", "6 to 10", ">10", or a number; normalize for resolveWeight
   let onlineCarriersRaw = getVal("onlineCarriers") || getVal("carriers") || getVal("carriersCount");
   let onlineCarriers = onlineCarriersRaw;
-  const m = String(onlineCarriersRaw||"").match(/(\d+)\s*to\s*(\d+)/i);
+  const m = String(onlineCarriersRaw || "").match(/(\d+)\s*to\s*(\d+)/i);
   if (m) {
-    onlineCarriers = Number(m[2]);
+    onlineCarriers = Number(m[2]);      // borne haute → tombera dans le bon bucket "6 to 10", etc.
+  } else if (/^\s*>\s*(\d+)/.test(String(onlineCarriersRaw || ""))) {
+    const over = Number(String(onlineCarriersRaw).replace(/[^\d]/g, ""));
+    onlineCarriers = over + 1;          // forcer >10 → 11 pour matcher "More than 10"
   } else if (!Number.isNaN(Number(onlineCarriersRaw))) {
     onlineCarriers = Number(onlineCarriersRaw);
   }
 
-  // explicit blueprintNeeded field if present; otherwise derive from sameProcess
+  // blueprintNeeded: si absent, déduire de sameProcess
   let blueprintNeeded = getVal("blueprintNeeded") || getVal("blueprint");
   if (!blueprintNeeded && sameProcess) {
     const sp = String(sameProcess).trim().toLowerCase();
     blueprintNeeded = (["no","non","false","0"].includes(sp)) ? "Yes" : "No";
   }
 
-  // also pass features so feature-step logic can work on Rollout (reuse modules as features proxy)
+  // envoyer aussi features pour featureStep (on réutilise modules)
   const features = modulesUsed.slice();
 
   return { siteCount, shipToRegion, modulesUsed, sameProcess, blueprintNeeded, onlineCarriers, features };
 }
+
 
 
   function ensureSowrulesReady() {

@@ -1,14 +1,16 @@
 // script_sow_new_carrier.js (INTERNAL)
 // Collect form → call shared SOWRULES.newCarrier → show result
-// Requires: config.js, estimation_rules.js  (les charger avec "defer" avant ce fichier)
+// Requires: config.js, estimation_rules.js
 
 (function () {
-  // ---------- Defaults (1er <option> / 1er radio) ----------
+  // ---------- Defaults (1st non-disabled <option> / 1st radio per group) ----------
   function applyDefaultInputs() {
     document.querySelectorAll("select").forEach(sel => {
       const anySelected = Array.from(sel.options).some(o => o.selected);
       if (!anySelected && sel.options.length) {
-        sel.options[0].selected = true;
+        const firstUsable = Array.from(sel.options).find(o => !o.disabled);
+        if (firstUsable) firstUsable.selected = true;
+        else sel.options[0].selected = true;
         sel.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
@@ -28,43 +30,38 @@
   // ---------- Helpers ----------
   const cleanList = (arr) => Array.from(new Set((arr || []).map(x => String(x).trim()).filter(Boolean)));
 
-  const getVal = (idOrName) => {
+  function getVal(idOrName) {
     const byId = document.getElementById(idOrName);
-    if (byId) return byId.value ?? "";
-    const radio = document.querySelector(`input[name="${idOrName}"]:checked`);
-    if (radio) return radio.value ?? "";
+    if (byId) return byId.value ?? '';
+    const checked = document.querySelector(`input[name="${idOrName}"]:checked`);
+    if (checked) return checked.value ?? '';
     const sel = document.querySelector(`select[name="${idOrName}"]`);
-    if (sel) return sel.value ?? "";
-    return "";
-  };
-
-  const getMulti = (idOrName) => {
-    const byId = document.getElementById(idOrName);
-    if (byId && byId.tagName === "SELECT" && byId.multiple) {
-      return Array.from(byId.selectedOptions).map(o => o.value);
-    }
+    if (sel) return sel.value ?? '';
+    return '';
+  }
+  function getMulti(idOrName) {
+    const el = document.getElementById(idOrName);
+    if (el && el.tagName === 'SELECT' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value);
     const sel = document.querySelector(`select[name="${idOrName}"]`);
-    if (sel && sel.multiple) {
-      return Array.from(sel.selectedOptions).map(o => o.value);
-    }
-    return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(el => el.value);
-  };
+    if (sel && sel.multiple) return Array.from(sel.selectedOptions).map(o => o.value);
+    return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(c => c.value);
+  }
 
   // ---------- Collecte New Carrier ----------
   function collectNewCarrierForm() {
-    // FEATURES: union des 2 styles (name='features' + legacy .feature-box) + support select[name="features"]
+    // FEATURES : union (name='features' + legacy .feature-box + select[name="features"]) + dédoublonnage
     let features = []
-      .concat(Array.from(document.querySelectorAll(`input[name="features"]:checked`)).map(el => el.value))
-      .concat(Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value))
-      .concat(getMulti("features"));
+      .concat(Array.from(document.querySelectorAll("input[name='features']:checked")).map(el => el.value))
+      .concat(Array.from(document.querySelectorAll('input.feature-box:checked')).map(el => el.value))
+      .concat(getMulti('features'));
     features = cleanList(features);
 
-    // SYSTEMS: multi ou single ; fallback legacy (sys_ecc/sys_ewm/sys_tm)
+    // SYSTEMS : multi ou single ; fallback legacy (sys_ecc/sys_ewm/sys_tm)
     let systemsUsed = []
-      .concat(getMulti("systemsUsed"))
-      .concat(getMulti("systemUsed"));
+      .concat(getMulti('systemsUsed'))
+      .concat(getMulti('systemUsed'));
     if (!systemsUsed.length) {
-      const one = getVal("whichSystem") || getVal("system") || getVal("erpSystem");
+      const one = getVal('whichSystem') || getVal('system') || getVal('erpSystem');
       if (one) systemsUsed = [String(one)];
     }
     const legacySystemUsed = ["sys_ecc", "sys_ewm", "sys_tm"]
@@ -72,24 +69,23 @@
       .map(id => document.getElementById(id).value);
     if (!systemsUsed.length && legacySystemUsed.length) systemsUsed = legacySystemUsed.slice();
     systemsUsed = cleanList(systemsUsed);
-    const systemsCount = systemsUsed.length || Number(getVal("systemsCount")) || 0;
+    const systemsCount = systemsUsed.length || Number(getVal('systemsCount')) || 0;
 
-    // SHIP FROM (Ship Form Location) — support id, name & select
+    // SHIP FROM / TO (multi)
     let shipFormLocation = []
-      .concat(getMulti("shipFormLocation"))
-      .concat(Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(o => o.value));
+      .concat(getMulti('shipFormLocation'))
+      .concat(Array.from(document.getElementById('shipFrom')?.selectedOptions || []).map(o => o.value));
     if (!shipFormLocation.length) {
-      const v = getVal("shipFrom") || getVal("formLocation");
+      const v = getVal('shipFrom') || getVal('formLocation');
       if (v) shipFormLocation = [String(v)];
     }
     shipFormLocation = cleanList(shipFormLocation);
 
-    // SHIP TO Location — support id, name & select
     let shipToLocation = []
-      .concat(getMulti("shipToLocation"))
-      .concat(Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(o => o.value));
+      .concat(getMulti('shipToLocation'))
+      .concat(Array.from(document.getElementById('shipTo')?.selectedOptions || []).map(o => o.value));
     if (!shipToLocation.length) {
-      const v = getVal("shipTo") || getVal("toLocation");
+      const v = getVal('shipTo') || getVal('toLocation');
       if (v) shipToLocation = [String(v)];
     }
     shipToLocation = cleanList(shipToLocation);
@@ -98,50 +94,51 @@
     let shipmentScreens = ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
       .filter(id => document.getElementById(id)?.checked)
       .map(id => document.getElementById(id).value);
-    if (!shipmentScreens.length) {
-      shipmentScreens = getMulti("shipmentScreens");
-    }
+    if (!shipmentScreens.length) shipmentScreens = getMulti('shipmentScreens');
     shipmentScreens = cleanList(shipmentScreens);
     const shipmentScreenString = shipmentScreens.join(", ");
 
     // Contexte optionnel
-    const shipToRegion = getVal("shipToRegion") || getVal("region");
+    const shipToRegion = getVal('shipToRegion') || getVal('region');
 
     return {
-      // === champs existants (compat backend) ===
+      // original fields (kept for symmetry / backend)
       clientName:        document.getElementById("clientName")?.value || "",
       featureInterest:   document.getElementById("featureInterest")?.value || "",
       email:             document.getElementById("email")?.value || "",
       carrierName:       document.getElementById("carrierName")?.value || "",
       carrierOther:      document.getElementById("carrierOther")?.value || "",
       alreadyUsed:       document.getElementById("alreadyUsed")?.value || "",
-      zEnhancements:     document.getElementById("zEnhancements")?.value || "",
+      zEnhancements:     document.getElementById("zEnhancements")?.value || "",   // keep bucket text
       onlineOrOffline:   document.getElementById("onlineOrOffline")?.value || "",
+
+      features,
 
       sapVersion:        document.getElementById("sapVersion")?.value || "",
       abapVersion:       document.getElementById("abapVersion")?.value || "",
       shiperpVersion:    document.getElementById("shiperpVersion")?.value || "",
       serpcarUsage:      document.getElementById("serpcarUsage")?.value || "",
 
-      // legacy conservés
+      // legacy capture kept
       systemUsed: legacySystemUsed,
-      shipFrom:  Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
-      shipTo:    Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
+      shipmentScreens,
+
+      shipFrom: Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
+      shipTo:   Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
+
+      // Keep symmetry with customer; used for E28 + backend compatibility
       shipToVolume: document.getElementById("zEnhancements")?.value || "",
       shipmentScreenString,
 
-      // === champs normalisés pour les règles ===
-      features,
+      // === NEW standardized fields for rules ===
       systemsUsed,
       systemsCount,
       shipFormLocation,
       shipToLocation,
       shipToRegion,
-      shipmentScreens
     };
   }
 
-  // ---------- SOWRULES ready ----------
   function ensureSowrulesReady() {
     if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") return Promise.resolve();
     return new Promise(resolve => {
@@ -158,14 +155,11 @@
     });
   }
 
-  // ---------- Run ----------
   async function run() {
-    // applique les defaults juste avant la collecte, au cas où
+    // appliquer les defaults juste avant la collecte
     applyDefaultInputs();
 
-    const resultBox =
-      document.getElementById("carrierResultBox") ||
-      document.getElementById("resultBox");
+    const resultBox = document.getElementById("resultBox") || document.getElementById("carrierResultBox");
     if (!resultBox) return;
 
     const payload = collectNewCarrierForm();
@@ -189,16 +183,14 @@
       }
     } catch (err) {
       console.error(err);
-      const msg = err && err.message ? err.message : String(err);
-      resultBox.textContent = `Network or server error: ${msg}`;
+      resultBox.textContent = `Network or server error: ${err.message || err}`;
       resultBox.style.color = "red";
     }
   }
 
-  // ---------- Bindings (inline & modernes) ----------
-  // si la page utilise un onclick="submitCarrierEstimate()" ou "submitNewCarrierEstimate()", expose-les :
-  window.submitCarrierEstimate     = run;
-  window.submitNewCarrierEstimate  = run;
+  // expose pour onclick inline éventuels
+  window.submitCarrierEstimate = run;
+  window.submitNewCarrierEstimate = run;
 
   document.addEventListener("DOMContentLoaded", () => {
     applyDefaultInputs();
@@ -206,7 +198,7 @@
       e.preventDefault();
       run();
     });
-    document.querySelector("#newCarrierForm")?.addEventListener("submit", (e) => {
+    document.querySelector('#newCarrierForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
       run();
     });

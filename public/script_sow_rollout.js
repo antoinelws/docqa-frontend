@@ -47,6 +47,24 @@
     return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(c => c.value);
   };
 
+  // -- Normalisation de libellés carriers (UI ↔ JSON)
+  // Exemple: si le JSON a "1 to 5"/"6 to 10"/"More than 10" mais l'UI affiche "1 to 3"/"1 to 3"/etc.
+  const CARRIERS_LABEL_MAP = {
+    // ajoute ici d'autres correspondances UI → JSON si nécessaire
+    "1 to 3": "1 to 5",
+    "1 to 5": "1 to 5",
+    "3 to 10": "6 to 10",
+    "6 to 10": "6 to 10",
+    "More than 10": "More than 10",
+    "More than 3": "More than 10", // au besoin
+    ">10": "More than 10",
+    "> 10": "More than 10",
+  };
+  function normalizeCarriersLabel(label) {
+    const key = String(label || "").trim();
+    return CARRIERS_LABEL_MAP[key] || key; // par défaut, on renvoie tel quel
+  }
+
   // -- Collecte Rollout (corrigée)
   function collectRolloutForm() {
     // site & region
@@ -67,14 +85,15 @@
     // same process ?
     const sameProcess = getVal("sameProcess") || getVal("sameRules") || getVal("sameAsExisting") || getVal("sameShipping");
 
-    // carriers : garder le **libellé** exact pour carriersWeights ; exposer en plus un max numérique si utile côté règles
+    // carriers : garder le libellé pour carriersWeights ; exposer un max numérique si utile côté règles
     const carriersRaw = getVal("onlineCarriers") || getVal("carriers") || getVal("carriersCount");
-    const onlineCarriers = String(carriersRaw || "");  // ex: "1 to 5", "6 to 10", "More than 10"
-    let onlineCarriersMax;                             // ex: 5, 10, 11…
-    const m = onlineCarriers.match(/(\d+)\s*to\s*(\d+)/i);
+    const onlineCarriersUI = String(carriersRaw || "");
+    const onlineCarriers   = normalizeCarriersLabel(onlineCarriersUI); // ← correspond aux clés JSON
+    let onlineCarriersMax;
+    const m = onlineCarriersUI.match(/(\d+)\s*to\s*(\d+)/i);
     if (m) onlineCarriersMax = Number(m[2]);
-    else if (/^>\s*\d+/.test(onlineCarriers)) onlineCarriersMax = Number(onlineCarriers.replace(/\D/g, "")) + 1;
-    else if (!Number.isNaN(Number(onlineCarriers))) onlineCarriersMax = Number(onlineCarriers);
+    else if (/^>\s*\d+/.test(onlineCarriersUI)) onlineCarriersMax = Number(onlineCarriersUI.replace(/\D/g, "")) + 1;
+    else if (!Number.isNaN(Number(onlineCarriersUI))) onlineCarriersMax = Number(onlineCarriersUI);
 
     // blueprintNeeded : si absent, le déduire de sameProcess (No => Yes)
     let blueprintNeeded = getVal("blueprintNeeded") || getVal("blueprint");
@@ -96,7 +115,7 @@
       sameProcess,
       blueprintNeeded,
       blueprint_required,   // ← utile si les règles s’attendent à un booléen
-      onlineCarriers,       // ← **libellé intact** pour carriersWeights
+      onlineCarriers,       // ← libellé normalisé pour carriersWeights
       onlineCarriersMax     // ← numérique (facultatif) si les règles en tirent parti
     };
   }
@@ -156,9 +175,18 @@
     }
   }
 
+  // Exposer pour l'inline onclick existant sur la page (submitRolloutEstimate())
+  window.submitRolloutEstimate = run;
+
   document.addEventListener("DOMContentLoaded", () => {
     applyDefaultInputs();
+    // Et on garde aussi un binding moderne si un bouton #btnCalc existe
     document.getElementById("btnCalc")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      run();
+    });
+    // Et si c’est un <form>, on intercepte la soumission
+    document.querySelector("#rolloutForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
       run();
     });

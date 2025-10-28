@@ -7,7 +7,32 @@
   "newCarrier": {
     "forceOnlineOffline": null,
     "fixOnlineSign": false,
-    "featureStep": { "size": 3, "increment": 12 }
+    "featureStep": { "size": 3, "increment": 12 },
+     "systemsLabelWeights": {
+    "ECC": 0,
+    "EWM": 6,
+    "TM": 8,
+    "default": 0
+  },
+  "systemsCountWeights": {
+    "Only 1": 0,
+    "2 to 2": 4,
+    "3 to 3": 8,
+    "default": 0
+  },
+
+  "formLocationWeights": {
+    "US": 0,
+    "CA": 4,
+    "EU": 8,
+    "default": 0
+  },
+  "toLocationWeights": {
+    "US": 0,
+    "CA": 4,
+    "EU": 8,
+    "default": 0
+  }
   },
 
   "rollout": {

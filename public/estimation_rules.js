@@ -194,6 +194,66 @@ window.SOWRULES = (function () {
     const extraHours = extraSteps * inc;
     total += extraHours;
 
+        // 5b) Local additive weights (config-driven) for Systems/ShipFrom/ShipTo
+    try {
+      const ncCfg = cfg?.newCarrier || {};
+
+      // --- helper to sum weights by list of labels OR by count (if map looks numeric/ranged) ---
+      const sumWeights = (map, raw) => {
+        if (!map) return 0;
+        // if raw is an array of labels → sum each label using resolveWeight (string or numeric)
+        if (Array.isArray(raw)) {
+          return raw.reduce((acc, item) => acc + (resolveWeight(map, item)?.value || 0), 0);
+        }
+        // if raw is a number → bucket the count
+        const n = Number(raw);
+        if (!Number.isNaN(n)) {
+          return resolveWeight(map, n)?.value || 0;
+        }
+        return 0;
+      };
+
+      // --- Systems used ---
+      // Deux modes supportés :
+      // 1) Poids par libellé (ex. ECC:4, EWM:6, TM:8)   → cfg.newCarrier.systemsLabelWeights
+      // 2) Poids par "count" (ex. 1→0h, 2→4h, 3→8h...) → cfg.newCarrier.systemsCountWeights
+      const sysLabels = Array.isArray(norm.systemUsed) ? norm.systemUsed : [];
+      const sysCount  = sysLabels.length;
+      let sysHours = 0;
+      if (ncCfg.systemsLabelWeights) sysHours += sumWeights(ncCfg.systemsLabelWeights, sysLabels);
+      if (ncCfg.systemsCountWeights) sysHours += sumWeights(ncCfg.systemsCountWeights, sysCount);
+      if (json && typeof json.total_effort === "number" && sysHours) {
+        json.total_effort += sysHours;
+        if (json.details && typeof json.details === "object") {
+          json.details.E2x_SystemsImpact = (json.details.E2x_SystemsImpact || 0) + sysHours;
+        }
+      }
+
+      // --- Ship FROM location (multi) ---
+      // Ex: cfg.newCarrier.formLocationWeights = { "US": 0, "CA": 4, "EU": 8, "default": 0 }
+      const fromList = Array.isArray(norm.shipFrom) ? norm.shipFrom : [];
+      const fromHours = sumWeights(ncCfg.formLocationWeights, fromList);
+      if (json && typeof json.total_effort === "number" && fromHours) {
+        json.total_effort += fromHours;
+        if (json.details && typeof json.details === "object") {
+          json.details.E24_ShipFromLocation = (json.details.E24_ShipFromLocation || 0) + fromHours;
+        }
+      }
+
+      // --- Ship TO location (multi) ---
+      // Ex: cfg.newCarrier.toLocationWeights = { "US": 0, "CA": 4, "EU": 8, "default": 0 }
+      const toList = Array.isArray(norm.shipTo) ? norm.shipTo : [];
+      const toHours = sumWeights(ncCfg.toLocationWeights, toList);
+      if (json && typeof json.total_effort === "number" && toHours) {
+        json.total_effort += toHours;
+        if (json.details && typeof json.details === "object") {
+          json.details.E25_ShipToLocation = (json.details.E25_ShipToLocation || 0) + toHours;
+        }
+      }
+    } catch (e) {
+      console.warn("Local newCarrier add-ons failed:", e);
+    }
+
     return {
       hours: total,
       total_hours: total,

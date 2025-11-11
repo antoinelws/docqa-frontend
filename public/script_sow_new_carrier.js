@@ -1,6 +1,6 @@
 // script_sow_new_carrier.js (INTERNAL)
-// Collect form → call shared SOWRULES.newCarrier → show result
-// Requires: config.js, estimation_rules.js
+// Collect form → compute internal estimate → show result
+// Requires: config.js, estimation_rules.js (for other features, but not needed here)
 
 (function () {
   // ---------- Defaults (1st non-disabled <option> / 1st radio per group) ----------
@@ -47,169 +47,309 @@
     return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(c => c.value);
   }
 
-// --- PATCH: alias complet pour Systems / Ship From / Ship To ---
-function collectNewCarrierForm() {
-  const cleanList = (arr) => Array.from(new Set((arr || []).map(x => String(x).trim()).filter(Boolean)));
+  // --- Collect form into payload ---
+  function collectNewCarrierForm() {
+    const cleanList = (arr) => Array.from(new Set((arr || []).map(x => String(x).trim()).filter(Boolean)));
 
-  const getVal = (idOrName) => {
-    const byId = document.getElementById(idOrName);
-    if (byId) return byId.value ?? "";
-    const radio = document.querySelector(`input[name="${idOrName}"]:checked`);
-    if (radio) return radio.value ?? "";
-    const sel = document.querySelector(`select[name="${idOrName}"]`);
-    if (sel) return sel.value ?? "";
-    return "";
-  };
-  const getMulti = (idOrName) => {
-    const byId = document.getElementById(idOrName);
-    if (byId && byId.tagName === "SELECT" && byId.multiple) {
-      return Array.from(byId.selectedOptions).map(o => o.value);
+    const getVal = (idOrName) => {
+      const byId = document.getElementById(idOrName);
+      if (byId) return byId.value ?? "";
+      const radio = document.querySelector(`input[name="${idOrName}"]:checked`);
+      if (radio) return radio.value ?? "";
+      const sel = document.querySelector(`select[name="${idOrName}"]`);
+      if (sel) return sel.value ?? "";
+      return "";
+    };
+    const getMulti = (idOrName) => {
+      const byId = document.getElementById(idOrName);
+      if (byId && byId.tagName === "SELECT" && byId.multiple) {
+        return Array.from(byId.selectedOptions).map(o => o.value);
+      }
+      const sel = document.querySelector(`select[name="${idOrName}"]`);
+      if (sel && sel.multiple) {
+        return Array.from(sel.selectedOptions).map(o => o.value);
+      }
+      return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(el => el.value);
+    };
+
+    // FEATURES (name="features")
+    let features = []
+      .concat(Array.from(document.querySelectorAll(`input[name="features"]:checked`)).map(el => el.value))
+      .concat(getMulti("features"));
+    features = cleanList(features);
+
+    // SYSTEMS (multi/single + legacy checkboxes)
+    let systemsUsed = []
+      .concat(getMulti("systemsUsed"))
+      .concat(getMulti("systemUsed"));
+    if (!systemsUsed.length) {
+      const one = getVal("whichSystem") || getVal("system") || getVal("erpSystem");
+      if (one) systemsUsed = [String(one)];
     }
-    const sel = document.querySelector(`select[name="${idOrName}"]`);
-    if (sel && sel.multiple) {
-      return Array.from(sel.selectedOptions).map(o => o.value);
+    const legacySystemUsed = ["sys_ecc", "sys_ewm", "sys_tm"]
+      .filter(id => document.getElementById(id)?.checked)
+      .map(id => document.getElementById(id).value);
+
+    if (!systemsUsed.length && legacySystemUsed.length) systemsUsed = legacySystemUsed.slice();
+    systemsUsed = cleanList(systemsUsed);
+
+    const SYSTEM_LABEL_MAP = {
+      "ECC": "ECC", "SAP ECC": "ECC",
+      "EWM": "EWM", "SAP EWM": "EWM",
+      "TM":  "TM",  "SAP TM":  "TM"
+    };
+    const systemsUsedNorm = systemsUsed.map(x => SYSTEM_LABEL_MAP[x] || x);
+    const systemsCount = systemsUsedNorm.length || Number(getVal("systemsCount")) || 0;
+
+    // SHIP FROM
+    let shipFormLocation = []
+      .concat(getMulti("shipFormLocation"))
+      .concat(Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(o => o.value));
+    if (!shipFormLocation.length) {
+      const v = getVal("shipFrom") || getVal("formLocation");
+      if (v) shipFormLocation = [String(v)];
     }
-    return Array.from(document.querySelectorAll(`input[name="${idOrName}"]:checked`)).map(el => el.value);
-  };
+    shipFormLocation = cleanList(shipFormLocation);
 
-  // FEATURES (name="features" + .feature-box + select[name="features"])
-  let features = []
-    .concat(Array.from(document.querySelectorAll(`input[name="features"]:checked`)).map(el => el.value))
-    .concat(Array.from(document.querySelectorAll("input.feature-box:checked")).map(el => el.value))
-    .concat(getMulti("features"));
-  features = cleanList(features);
+    // SHIP TO
+    let shipToLocation = []
+      .concat(getMulti("shipToLocation"))
+      .concat(Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(o => o.value));
+    if (!shipToLocation.length) {
+      const v = getVal("shipTo") || getVal("toLocation");
+      if (v) shipToLocation = [String(v)];
+    }
+    shipToLocation = cleanList(shipToLocation);
 
-  // SYSTEMS (multi/single + legacy checkboxes)
-  let systemsUsed = []
-    .concat(getMulti("systemsUsed"))
-    .concat(getMulti("systemUsed"));
-  if (!systemsUsed.length) {
-    const one = getVal("whichSystem") || getVal("system") || getVal("erpSystem");
-    if (one) systemsUsed = [String(one)];
-  }
-  const legacySystemUsed = ["sys_ecc", "sys_ewm", "sys_tm"]
-    .filter(id => document.getElementById(id)?.checked)
-    .map(id => document.getElementById(id).value);
+    // Shipment screens
+    let shipmentScreens = ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
+      .filter(id => document.getElementById(id)?.checked)
+      .map(id => document.getElementById(id).value);
+    if (!shipmentScreens.length) shipmentScreens = getMulti("shipmentScreens");
+    shipmentScreens = cleanList(shipmentScreens);
+    const shipmentScreenString = shipmentScreens.join(", ");
 
-  if (!systemsUsed.length && legacySystemUsed.length) systemsUsed = legacySystemUsed.slice();
-  systemsUsed = cleanList(systemsUsed);
+    const shipToRegion = getVal("shipToRegion") || getVal("region");
 
-  // (optionnel) harmoniser des libellés éventuels vers les clés JSON
-  const SYSTEM_LABEL_MAP = {
-    "ECC": "ECC", "SAP ECC": "ECC",
-    "EWM": "EWM", "SAP EWM": "EWM",
-    "TM":  "TM",  "SAP TM":  "TM"
-  };
-  const systemsUsedNorm = systemsUsed.map(x => SYSTEM_LABEL_MAP[x] || x);
-  const systemsCount = systemsUsedNorm.length || Number(getVal("systemsCount")) || 0;
+    const base = {
+      clientName:        document.getElementById("clientName")?.value || "",
+      featureInterest:   document.getElementById("featureInterest")?.value || "",
+      email:             document.getElementById("email")?.value || "",
+      carrierName:       document.getElementById("carrierName")?.value || "",
+      carrierOther:      document.getElementById("carrierOther")?.value || "",
+      alreadyUsed:       document.getElementById("alreadyUsed")?.value || "",
+      zEnhancements:     document.getElementById("zEnhancements")?.value || "",
+      onlineOrOffline:   document.getElementById("onlineOrOffline")?.value || "",
 
-  // SHIP FROM (Ship Form Location) — ID ou name; multi
-  let shipFormLocation = []
-    .concat(getMulti("shipFormLocation"))
-    .concat(Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(o => o.value));
-  if (!shipFormLocation.length) {
-    const v = getVal("shipFrom") || getVal("formLocation");
-    if (v) shipFormLocation = [String(v)];
-  }
-  shipFormLocation = cleanList(shipFormLocation);
+      sapVersion:        document.getElementById("sapVersion")?.value || "",
+      abapVersion:       document.getElementById("abapVersion")?.value || "",
+      shiperpVersion:    document.getElementById("shiperpVersion")?.value || "",
+      serpcarUsage:      document.getElementById("serpcarUsage")?.value || "",
 
-  // SHIP TO Location — ID ou name; multi
-  let shipToLocation = []
-    .concat(getMulti("shipToLocation"))
-    .concat(Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(o => o.value));
-  if (!shipToLocation.length) {
-    const v = getVal("shipTo") || getVal("toLocation");
-    if (v) shipToLocation = [String(v)];
-  }
-  shipToLocation = cleanList(shipToLocation);
+      systemUsed: legacySystemUsed,
+      shipFrom:  Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
+      shipTo:    Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
+      shipToVolume: document.getElementById("zEnhancements")?.value || "",
+      shipmentScreenString,
+    };
 
-  // Shipment screens : checkboxes OU select[name="shipmentScreens"]
-  let shipmentScreens = ["screen_smallparcel", "screen_planning", "screen_tm", "screen_other"]
-    .filter(id => document.getElementById(id)?.checked)
-    .map(id => document.getElementById(id).value);
-  if (!shipmentScreens.length) shipmentScreens = getMulti("shipmentScreens");
-  shipmentScreens = cleanList(shipmentScreens);
-  const shipmentScreenString = shipmentScreens.join(", ");
-
-  // Contexte optionnel
-  const shipToRegion = getVal("shipToRegion") || getVal("region");
-
-  // === Champs d’origine (compat backend) ===
-  const base = {
-    clientName:        document.getElementById("clientName")?.value || "",
-    featureInterest:   document.getElementById("featureInterest")?.value || "",
-    email:             document.getElementById("email")?.value || "",
-    carrierName:       document.getElementById("carrierName")?.value || "",
-    carrierOther:      document.getElementById("carrierOther")?.value || "",
-    alreadyUsed:       document.getElementById("alreadyUsed")?.value || "",
-    zEnhancements:     document.getElementById("zEnhancements")?.value || "",
-    onlineOrOffline:   document.getElementById("onlineOrOffline")?.value || "",
-
-    sapVersion:        document.getElementById("sapVersion")?.value || "",
-    abapVersion:       document.getElementById("abapVersion")?.value || "",
-    shiperpVersion:    document.getElementById("shiperpVersion")?.value || "",
-    serpcarUsage:      document.getElementById("serpcarUsage")?.value || "",
-
-    // legacy conservés
-    systemUsed: legacySystemUsed,    // (on le garde tel quel)
-    shipFrom:  Array.from(document.getElementById("shipFrom")?.selectedOptions || []).map(el => el.value),
-    shipTo:    Array.from(document.getElementById("shipTo")?.selectedOptions || []).map(el => el.value),
-    shipToVolume: document.getElementById("zEnhancements")?.value || "",
-    shipmentScreenString,
-  };
-
-  // === Champs normalisés + ALIAS pour matcher toutes les attentes possibles côté règles ===
-  // → Ici on “inonde” volontairement le payload avec toutes les variantes communes
-  return {
-    ...base,
-
-    // Features
-    features,
-
-    // Systems (toutes variantes)
-    systemsUsed: systemsUsedNorm,            // array
-    systems:     systemsUsedNorm,            // alias array
-    systemUsed:  systemsUsedNorm,            // alias array (remplace l’existant si besoin)
-    whichSystem: systemsUsedNorm.join(", "), // string liste
-    system:      systemsUsedNorm[0] || "",   // string simple (1er choix)
-    systemsCount,
-
-    // Ship From (toutes variantes courantes)
-    shipFormLocation,                        // array
-    shipFromLocation: shipFormLocation,      // alias
-    shipFromLocations: shipFormLocation,     // alias
-    fromLocation: shipFormLocation,          // alias
-
-    // Ship To (toutes variantes courantes)
-    shipToLocation,                          // array
-    shipToLocations: shipToLocation,         // alias
-    toLocation: shipToLocation,              // alias
-    shipToRegion,
-
-    // Shipment Screens (déjà actifs dans ta response)
-    shipmentScreens,
-  };
-}
-
-  function ensureSowrulesReady() {
-    if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") return Promise.resolve();
-    return new Promise(resolve => {
-      const onReady = () => resolve();
-      window.addEventListener("sowrules-ready", onReady, { once: true });
-      const iv = setInterval(() => {
-        if (window.SOWRULES && typeof SOWRULES.newCarrier === "function") {
-          clearInterval(iv);
-          window.removeEventListener("sowrules-ready", onReady);
-          resolve();
-        }
-      }, 50);
-      setTimeout(() => { clearInterval(iv); resolve(); }, 5000);
-    });
+    return {
+      ...base,
+      features,
+      systemsUsed: systemsUsedNorm,
+      systems:     systemsUsedNorm,
+      systemUsed:  systemsUsedNorm,
+      whichSystem: systemsUsedNorm.join(", "),
+      system:      systemsUsedNorm[0] || "",
+      systemsCount,
+      shipFormLocation,
+      shipFromLocation: shipFormLocation,
+      shipFromLocations: shipFormLocation,
+      fromLocation: shipFormLocation,
+      shipToLocation,
+      shipToLocations: shipToLocation,
+      toLocation: shipToLocation,
+      shipToRegion,
+      shipmentScreens,
+    };
   }
 
+  // ---------- Simple internal estimator for New Carrier INTERNAL ----------
+    // ---------- Simple internal estimator for New Carrier INTERNAL ----------
+  function computeInternalEstimate(payload) {
+    let hours = 0;
+    const breakdown = [];
+
+    function addPart(label, value, note) {
+      breakdown.push({ label, value, note });
+      hours += value;
+    }
+
+    // 1) Carrier base
+    // if the carrier is not listed on the carrier name it should return 40hours
+    // and if carrier selected is in the dropdown return 60hours
+    const carrierName = (payload.carrierName || "").trim();
+    if (carrierName) {
+      addPart("Carrier base (listed in dropdown)", 60, carrierName);
+    } else {
+      addPart("Carrier base (not listed)", 40, "No carrier selected in dropdown");
+    }
+
+    // 2) Do you already use this carrier with ShipERP on another plant?
+    // if yes return minus 16hours, if no return 0
+    const alreadyUsed = (payload.alreadyUsed || "").trim();
+    if (alreadyUsed === "Yes") {
+      addPart("Already used with ShipERP on another plant", -16, "Answer: Yes");
+    } else {
+      addPart("Already used with ShipERP on another plant", 0, `Answer: ${alreadyUsed || "No/I do not know"}`);
+    }
+
+    // 3) Online or Offline
+    // if online should return 0, then if offline minus 32 hours
+    const onlineOrOffline = (payload.onlineOrOffline || "").trim();
+    if (onlineOrOffline === "Offline") {
+      addPart("Online vs Offline", -32, "Offline");
+    } else {
+      addPart("Online vs Offline", 0, onlineOrOffline || "Online / I do not know");
+    }
+
+    // 4) What type of feature will you use?
+    // if selected more than 3 return 16hours, else return 0
+    const features = Array.isArray(payload.features) ? payload.features : [];
+    if (features.length > 3) {
+      addPart("Features used (more than 3)", 16, `${features.length} selected`);
+    } else {
+      addPart("Features used (3 or fewer)", 0, `${features.length} selected`);
+    }
+
+    // 5) Which system will be used?
+    // if more than 1 return 16 hours else, return 0
+    const systems = Array.isArray(payload.systemUsed) ? payload.systemUsed : [];
+    if (systems.length > 1) {
+      addPart("Systems used (more than 1)", 16, systems.join(", ") || "None");
+    } else {
+      addPart("Systems used (1 or 0)", 0, systems.join(", ") || "None");
+    }
+
+    // 6) Shiperp current version
+    // "Above 4.5" → result is 0
+    // "Between 4.0 and 4.5" → result is 0
+    // "Between 3.6 and 3.9" → result is 8 hours
+    // "Lower than 3.6" → result is 12hours
+    const shiperpVersion = (payload.shiperpVersion || "").trim();
+    if (shiperpVersion === "Between 3.6 and 3.9") {
+      addPart("ShipERP version impact", 8, shiperpVersion);
+    } else if (shiperpVersion === "Lower than 3.6") {
+      addPart("ShipERP version impact", 12, shiperpVersion);
+    } else {
+      addPart("ShipERP version impact", 0, shiperpVersion || "Above 4.5 / Between 4.0 and 4.5");
+    }
+
+    // 7) Screen used to create shipment
+    // if selected more than 1 return 8 hours, else return 0
+    const screens = Array.isArray(payload.shipmentScreens) ? payload.shipmentScreens : [];
+    if (screens.length > 1) {
+      addPart("Screens used (more than 1)", 8, screens.join(", ") || "None");
+    } else {
+      addPart("Screens used (1 or 0)", 0, screens.join(", ") || "None");
+    }
+
+    // 8) Do you currently use or have used a SERPCAR carrier?
+    // if yes should minus 16hours, if no 0
+    const serpcarUsage = (payload.serpcarUsage || "").trim();
+    if (serpcarUsage === "Yes") {
+      addPart("SERPCAR carrier usage", -16, "Answer: Yes");
+    } else {
+      addPart("SERPCAR carrier usage", 0, `Answer: ${serpcarUsage || "No/I do not know"}`);
+    }
+
+    // optional: prevent negative totals
+    // if (hours < 0) hours = 0;
+
+    return { total_effort: hours, breakdown };
+  }
+
+
+  // ---------- Validation ----------
+  function clearValidationUI() {
+    document.querySelectorAll(".has-error").forEach(el => el.classList.remove("has-error"));
+    document.querySelectorAll(".error-text").forEach(el => el.textContent = "");
+    const summary = document.getElementById("validationSummary");
+    if (summary) {
+      summary.style.display = "none";
+      summary.innerHTML = "";
+    }
+  }
+
+  function showValidationErrors(errors) {
+    const summary = document.getElementById("validationSummary");
+    if (summary && Object.keys(errors).length) {
+      summary.style.display = "block";
+      const list = Object.values(errors).map(msg => `<li>${msg}</li>`).join("");
+      summary.innerHTML = `<strong>Please fix the following:</strong><ul>${list}</ul>`;
+    }
+
+    // Per-field errors
+    if (errors.clientName) {
+      const label = document.getElementById("field-clientName");
+      label?.classList.add("has-error");
+      const errEl = document.querySelector('[data-error-for="clientName"]');
+      if (errEl) errEl.textContent = errors.clientName;
+    }
+    if (errors.sapVersion) {
+      const label = document.getElementById("field-sapVersion");
+      label?.classList.add("has-error");
+      const errEl = document.querySelector('[data-error-for="sapVersion"]');
+      if (errEl) errEl.textContent = errors.sapVersion;
+    }
+    if (errors.abapVersion) {
+      const label = document.getElementById("field-abapVersion");
+      label?.classList.add("has-error");
+      const errEl = document.querySelector('[data-error-for="abapVersion"]');
+      if (errEl) errEl.textContent = errors.abapVersion;
+    }
+    if (errors.systems) {
+      const fs = document.getElementById("field-systems");
+      fs?.classList.add("has-error");
+      const errEl = document.querySelector('[data-error-for="systems"]');
+      if (errEl) errEl.textContent = errors.systems;
+    }
+    if (errors.screens) {
+      const fs = document.getElementById("field-screens");
+      fs?.classList.add("has-error");
+      const errEl = document.querySelector('[data-error-for="screens"]');
+      if (errEl) errEl.textContent = errors.screens;
+    }
+  }
+
+  function validateNewCarrier(payload) {
+    const errors = {};
+
+    if (!payload.clientName) {
+      errors.clientName = "Client Name is required.";
+    }
+    if (!payload.sapVersion || !payload.sapVersion.trim()) {
+      errors.sapVersion = "SAP Version is required.";
+    }
+    if (!payload.abapVersion || !payload.abapVersion.trim()) {
+      errors.abapVersion = "ABAP Version is required.";
+    }
+    const systems = Array.isArray(payload.systemUsed) ? payload.systemUsed : [];
+    if (!systems.length) {
+      errors.systems = "Select at least one system.";
+    }
+    const screens = Array.isArray(payload.shipmentScreens) ? payload.shipmentScreens : [];
+    if (!screens.length) {
+      errors.screens = "Select at least one screen used to create shipment.";
+    }
+
+    return errors;
+  }
+
+  // ---------- Main run ----------
   async function run() {
-    // appliquer les defaults juste avant la collecte
     applyDefaultInputs();
+    clearValidationUI();
 
     const resultBox = document.getElementById("resultBox") || document.getElementById("carrierResultBox");
     if (!resultBox) return;
@@ -217,30 +357,35 @@ function collectNewCarrierForm() {
     const payload = collectNewCarrierForm();
     console.log("[NC INTERNAL] payload:", payload);
 
-    try {
-      await ensureSowrulesReady();
-      if (!window.SOWRULES || typeof SOWRULES.newCarrier !== "function") {
-        throw new Error("SOWRULES.newCarrier is not available. Make sure estimation_rules.js is loaded before this script.");
-      }
+    const errors = validateNewCarrier(payload);
+    if (Object.keys(errors).length) {
+      showValidationErrors(errors);
+      resultBox.style.display = "none";
+      return;
+    }
 
-      const est = await SOWRULES.newCarrier(payload);
-      console.log("[NC INTERNAL] response:", est);
+    try {
+      const est = computeInternalEstimate(payload);
+      console.log("[NC INTERNAL] computed:", est);
 
       if (est && est.total_effort != null) {
         resultBox.textContent = `Estimated Effort: ${est.total_effort} hours`;
-        resultBox.style.color = "green";
+        resultBox.style.display = "block";
+        resultBox.style.color = "#166534";
       } else {
         resultBox.textContent = "No total_effort returned.";
-        resultBox.style.color = "red";
+        resultBox.style.display = "block";
+        resultBox.style.color = "#b91c1c";
       }
     } catch (err) {
       console.error(err);
-      resultBox.textContent = `Network or server error: ${err.message || err}`;
-      resultBox.style.color = "red";
+      resultBox.textContent = `Calculation error: ${err.message || err}`;
+      resultBox.style.display = "block";
+      resultBox.style.color = "#b91c1c";
     }
   }
 
-  // expose pour onclick inline éventuels
+  // expose for inline
   window.submitCarrierEstimate = run;
   window.submitNewCarrierEstimate = run;
 
@@ -250,7 +395,7 @@ function collectNewCarrierForm() {
       e.preventDefault();
       run();
     });
-    document.querySelector('#newCarrierForm')?.addEventListener('submit', (e) => {
+    document.querySelector('#formNewCarrierInternal')?.addEventListener('submit', (e) => {
       e.preventDefault();
       run();
     });

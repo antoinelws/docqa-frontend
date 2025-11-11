@@ -6,166 +6,584 @@
   <title>New Carrier – Internal Estimation</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    .container { max-width: 960px; margin: auto; }
-    .form-group { display:flex; flex-wrap:wrap; gap:12px 24px; margin-bottom: 1rem; }
-    .form-group > label { flex:1 1 220px; display:flex; flex-direction:column; gap:6px; }
-    fieldset { margin-top: 1rem; padding: 1rem; border: 1px solid #ccc; }
-    .features-grid { display:grid; grid-template-columns: repeat(2, minmax(240px,1fr)); gap:8px 16px; }
-    .btn.primary {
-      background:#0c3c60; color:#fff; border:none; padding:12px 24px; border-radius:8px;
-      cursor:pointer; margin-top:16px; transition: background .3s;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    .btn.primary:hover { background:#0a2f4a; }
-    #resultBox { margin-top:16px; font-weight:600; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h2 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .form-content {
+      padding: 2.5rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .required {
+      color: #e74c3c;
+      margin-left: 4px;
+    }
+
+    select, input[type="text"], input[type="email"], input[type="number"] {
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      background-color: white;
+      font-family: inherit;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    select[multiple] {
+      padding: 0.5rem;
+      height: auto;
+    }
+
+    select[multiple] option {
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin: 2px 0;
+    }
+
+    select[multiple] option:checked {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.25rem;
+      font-style: italic;
+    }
+
+    fieldset {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      background: #f8f9fa;
+    }
+
+    legend {
+      padding: 0 0.75rem;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #333;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem;
+      background: white;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .checkbox-row:hover {
+      background: #f0f0f0;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 0.75rem;
+      cursor: pointer;
+      accent-color: #667eea;
+    }
+
+    .checkbox-row.checked {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .checkbox-row label {
+      margin: 0;
+      font-weight: 500;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .btn.primary {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    .btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn.primary:active {
+      transform: translateY(0);
+    }
+
+    #resultBox {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      min-height: 60px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;
+      color: #666;
+      white-space: pre-line;
+      line-height: 1.6;
+    }
+
+    #resultBox.show {
+      display: flex;
+    }
+
+    #validationSummary {
+      margin-bottom: 2rem;
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      background: #ffebee;
+      border-left: 4px solid #e74c3c;
+      display: none;
+    }
+
+    #validationSummary.show {
+      display: block;
+    }
+
+    #validationSummary ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.5rem;
+      color: #c62828;
+    }
+
+    #validationSummary ul li {
+      margin: 0.25rem 0;
+    }
+
+    .has-error select,
+    .has-error input {
+      border-color: #e74c3c;
+      box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+    }
+
+    .error-text {
+      margin-top: 0.25rem;
+      font-size: 0.85rem;
+      color: #e74c3c;
+      font-weight: 500;
+    }
+
+    .icon {
+      display: inline-block;
+      margin-right: 0.5rem;
+    }
+
+    .question-number {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-size: 0.85rem;
+      margin-right: 0.5rem;
+      font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .header h2 {
+        font-size: 1.5rem;
+      }
+
+      .form-content {
+        padding: 1.5rem;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>New Carrier – Internal Estimation</h2>
+    <div class="header">
+      <h2>🚚 New Carrier – Internal Estimation</h2>
+      <p>Fill in the carrier and system information to estimate implementation effort</p>
+    </div>
 
-    <form id="formNewCarrierInternal" onsubmit="return false;">
-      <div class="form-group">
-        <label>Client Name
-          <select id="clientName" name="clientName">
-            <option value="">Select client</option>
-            <option value="A.O SMITH CORPORATION">A.O SMITH CORPORATION</option>
-            <option value="ABC">ABC</option>
-            <option value="AGUSTA">AGUSTA</option>
-            <option value="AMER SPORTS EUROPE SERVIC">AMER SPORTS EUROPE SERVIC</option>
-            <option value="AMMANN SCHWEIZ AG">AMMANN SCHWEIZ AG</option>
-            <!-- (add the rest if you have more) -->
-          </select>
-        </label>
+    <div class="form-content">
+      <div id="validationSummary"></div>
+
+      <form id="formNewCarrierInternal" onsubmit="return false;">
+        <div class="form-row">
+          <div class="form-group" id="field-clientName">
+            <label>
+              <span class="question-number">1</span>
+              Client Name<span class="required">*</span>
+            </label>
+            <select id="clientName" name="clientName">
+              <option value="">Select client</option>
+              <option value="A.O SMITH CORPORATION">A.O SMITH CORPORATION</option>
+              <option value="ABC">ABC</option>
+              <option value="AGUSTA">AGUSTA</option>
+              <option value="AMER SPORTS EUROPE SERVIC">AMER SPORTS EUROPE SERVIC</option>
+              <option value="AMMANN SCHWEIZ AG">AMMANN SCHWEIZ AG</option>
+            </select>
+            <div class="error-text" data-error-for="clientName"></div>
+          </div>
+          
+          <div class="form-group" id="field-carrierName">
+            <label>
+              <span class="question-number">2</span>
+              Carrier Name
+            </label>
+            <select id="carrierName" name="carrierName">
+              <option value="">Carrier not listed</option>
+              <option value="ABFS Class">ABFS Class</option>
+              <option value="AIT Worldwide">AIT Worldwide</option>
+              <option value="Amazon Merchant Fulfillment">Amazon Merchant Fulfillment</option>
+            </select>
+            <span class="hint">Leave as "Carrier not listed" to apply the 40-hour base.</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" id="field-alreadyUsed">
+            <label>
+              <span class="question-number">3</span>
+              Do you already use this carrier with ShipERP on another plant?
+            </label>
+            <select id="alreadyUsed" name="alreadyUsed">
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+              <option value="I do not know">I do not know</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <span class="question-number">4</span>
+              Z-enhancements with this carrier
+            </label>
+            <select id="zEnhancements" name="zEnhancements">
+              <option value="Less than 10">Less than 10</option>
+              <option value="Between 10 and 50">Between 10 and 50</option>
+              <option value="More than 50">More than 50</option>
+              <option value="I'm not sure">I'm not sure</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">5</span>
+              Online or Offline
+            </label>
+            <select id="onlineOrOffline" name="onlineOrOffline">
+              <option value="Online">Online</option>
+              <option value="Offline">Offline</option>
+              <option value="I do not know">I do not know</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset>
+          <legend>
+            <span class="question-number">6</span>
+            What type of feature will you use?
+          </legend>
+          <div class="features-grid" id="featuresGrid">
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_shipping" name="features" value="Shipping & Labeling" />
+              <label for="feat_shipping">Shipping & Labeling</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_rate" name="features" value="Rate quoting" />
+              <label for="feat_rate">Rate quoting</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_tracking" name="features" value="Tracking" />
+              <label for="feat_tracking">Tracking</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_pod" name="features" value="Proof of Delivery" />
+              <label for="feat_pod">Proof of Delivery</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_hazmat" name="features" value="Hazmat shipping" />
+              <label for="feat_hazmat">Hazmat shipping</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_eod" name="features" value="End of day manifest" />
+              <label for="feat_eod">End of day manifest</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_create_pickup" name="features" value="Create Request for Pickup" />
+              <label for="feat_create_pickup">Create Request for Pickup</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_cancel_pickup" name="features" value="Cancel Request for Pickup" />
+              <label for="feat_cancel_pickup">Cancel Request for Pickup</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_address" name="features" value="Address Validation" />
+              <label for="feat_address">Address Validation</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="feat_etd" name="features" value="Electronic Trade Documents" />
+              <label for="feat_etd">Electronic Trade Documents</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="form-row">
+          <div class="form-group" id="field-sapVersion">
+            <label>
+              <span class="question-number">7</span>
+              SAP Version<span class="required">*</span>
+            </label>
+            <input id="sapVersion" name="sapVersion" placeholder="Example: ECC 6.0 EHP8" />
+            <div class="error-text" data-error-for="sapVersion"></div>
+          </div>
+
+          <div class="form-group" id="field-abapVersion">
+            <label>
+              <span class="question-number">8</span>
+              ABAP Version<span class="required">*</span>
+            </label>
+            <input id="abapVersion" name="abapVersion" />
+            <div class="error-text" data-error-for="abapVersion"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">9</span>
+              Current ShipERP version
+            </label>
+            <select id="shiperpVersion" name="shiperpVersion">
+              <option value="Above 4.5">Above 4.5</option>
+              <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
+              <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
+              <option value="Lower than 3.6">Lower than 3.6</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <span class="question-number">10</span>
+              Do you currently use or have used a SERPCAR carrier?
+            </label>
+            <select id="serpcarUsage" name="serpcarUsage">
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+              <option value="I do not know">I do not know</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset id="field-systems">
+          <legend>
+            <span class="question-number">11</span>
+            Which system will be used?<span class="required">*</span>
+          </legend>
+          <div class="checkbox-row">
+            <input type="checkbox" id="sys_ecc" value="ECC" name="systems" />
+            <label for="sys_ecc">ECC</label>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="sys_ewm" value="EWM" name="systems" />
+            <label for="sys_ewm">EWM</label>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="sys_tm" value="TM" name="systems" />
+            <label for="sys_tm">TM</label>
+          </div>
+          <div class="error-text" data-error-for="systems"></div>
+        </fieldset>
+
+        <fieldset id="field-screens">
+          <legend>
+            <span class="question-number">12</span>
+            Screen used to create shipment<span class="required">*</span>
+          </legend>
+          <div class="checkbox-row">
+            <input type="checkbox" id="screen_smallparcel" value="Small Parcel Screen" name="screens" />
+            <label for="screen_smallparcel">Small Parcel</label>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="screen_planning" value="Planning or TUV Screen" name="screens" />
+            <label for="screen_planning">Planning or TUV</label>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="screen_tm" value="SAP TM Screen" name="screens" />
+            <label for="screen_tm">SAP TM</label>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="screen_other" value="Other" name="screens" />
+            <label for="screen_other">Other</label>
+          </div>
+          <div class="error-text" data-error-for="screens"></div>
+        </fieldset>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">13</span>
+              Shipping FROM location
+            </label>
+            <select id="shipFrom">
+              <option value="US">US</option>
+              <option value="PR">PR</option>
+              <option value="VI">VI</option>
+              <option value="CA">CA</option>
+              <option value="BR">BR</option>
+              <option value="MX">MX</option>
+              <option value="EU">EU</option>
+              <option value="GB">GB</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <span class="question-number">14</span>
+              Shipping TO location
+            </label>
+            <select id="shipTo">
+              <option value="US">US</option>
+              <option value="PR">PR</option>
+              <option value="VI">VI</option>
+              <option value="CA">CA</option>
+              <option value="BR">BR</option>
+              <option value="MX">MX</option>
+              <option value="EU">EU</option>
+              <option value="GB">GB</option>
+              <option value="APO / FPO / DPO locations">APO / FPO / DPO</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn primary" id="btnCalc">
+          <span class="icon">📊</span>
+          <span>Calculate Effort Estimation</span>
+        </button>
         
-        <label>Carrier Name
-          <select id="carrierName" name="carrierName">
-            <option value="">Select carrier</option>
-            <option value="ABFS Class">ABFS Class</option>
-            <option value="AIT Worldwide">AIT Worldwide</option>
-            <option value="Amazon Merchant Fulfillment">Amazon Merchant Fulfillment</option>
-            <!-- (add the rest if you have more) -->
-          </select>
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>Do you already use this carrier with ShipERP on another plant?
-          <select id="alreadyUsed" name="alreadyUsed">
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-            <option value="I do not know">I do not know</option>
-          </select>
-        </label>
-
-        <label>Z-enhancements with this carrier
-          <select id="zEnhancements" name="zEnhancements">
-            <option value="Less than 10">Less than 10</option>
-            <option value="Between 10 and 50">Between 10 and 50</option>
-            <option value="More than 50">More than 50</option>
-            <option value="I'm not sure">I'm not sure</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>Online or Offline
-          <select id="onlineOrOffline" name="onlineOrOffline">
-            <option value="Online">Online</option>
-            <option value="Offline">Offline</option>
-            <option value="I do not know">I do not know</option>
-          </select>
-        </label>
-      </div>
-
-      <fieldset>
-        <legend>What type of feature will you use?</legend>
-        <label><input type="checkbox" name="features" value="Shipping & Labeling" /> Shipping & Labeling</label>
-        <label><input type="checkbox" name="features" value="Rate quoting" /> Rate quoting</label>
-        <label><input type="checkbox" name="features" value="Tracking" /> Tracking</label>
-        <label><input type="checkbox" name="features" value="Proof of Delivery" /> Proof of Delivery</label>
-        <label><input type="checkbox" name="features" value="Hazmat shipping" /> Hazmat shipping</label>
-        <label><input type="checkbox" name="features" value="End of day manifest" /> End of day manifest</label>
-        <label><input type="checkbox" name="features" value="Create Request for Pickup" /> Create Request for Pickup</label>
-        <label><input type="checkbox" name="features" value="Cancel Request for Pickup" /> Cancel Request for Pickup</label>
-        <label><input type="checkbox" name="features" value="Address Validation" /> Address Validation</label>
-        <label><input type="checkbox" name="features" value="Electronic Trade Documents" /> Electronic Trade Documents</label>
-      </fieldset>
-
-
-
-      <div class="form-group">
-        <label>SAP Version
-          <input id="sapVersion" name="sapVersion" placeholder="Example: ECC 6.0 EHP8" />
-        </label>
-        <label>ABAP Version
-          <input id="abapVersion" name="abapVersion" />
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>Current ShipERP version
-          <select id="shiperpVersion" name="shiperpVersion">
-            <option value="Above 4.5">Above 4.5</option>
-            <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
-            <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
-            <option value="Lower than 3.6">Lower than 3.6</option>
-          </select>
-        </label>
-        <label>Do you currently use or have used a SERPCAR carrier?
-          <select id="serpcarUsage" name="serpcarUsage">
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
-            <option value="I do not know">I do not know</option>
-          </select>
-        </label>
-      </div>
-
-      <fieldset>
-        <legend>Which system will be used?</legend>
-        <label><input type="checkbox" id="sys_ecc" value="ECC" /> ECC</label>
-        <label><input type="checkbox" id="sys_ewm" value="EWM" /> EWM</label>
-        <label><input type="checkbox" id="sys_tm"  value="TM"  /> TM</label>
-      </fieldset>
-
-      <fieldset>
-        <legend>Screen used to create shipment</legend>
-        <label><input type="checkbox" id="screen_smallparcel" value="Small Parcel Screen" /> Small Parcel</label>
-        <label><input type="checkbox" id="screen_planning"    value="Planning or TUV Screen" /> Planning or TUV</label>
-        <label><input type="checkbox" id="screen_tm"          value="SAP TM Screen" /> SAP TM</label>
-        <label><input type="checkbox" id="screen_other"       value="Other" /> Other</label>
-      </fieldset>
-
-      <fieldset>
-        <legend>Shipping FROM location</legend>
-        <select multiple id="shipFrom">
-          <option value="US">US</option><option value="PR">PR</option>
-          <option value="VI">VI</option><option value="CA">CA</option>
-          <option value="BR">BR</option><option value="MX">MX</option>
-          <option value="EU">EU</option><option value="GB">GB</option>
-          <option value="Other">Other</option>
-        </select>
-      </fieldset>
-
-      <fieldset>
-        <legend>Shipping TO location</legend>
-        <select multiple id="shipTo">
-          <option value="US">US</option><option value="PR">PR</option>
-          <option value="VI">VI</option><option value="CA">CA</option>
-          <option value="BR">BR</option><option value="MX">MX</option>
-          <option value="EU">EU</option><option value="GB">GB</option>
-          <option value="APO / FPO / DPO locations">APO / FPO / DPO</option>
-          <option value="Other">Other</option>
-        </select>
-      </fieldset>
-
-      <button class="btn primary" id="btnCalc">Calculate Effort</button>
-      <div id="resultBox"></div>
-    </form>
+        <div id="resultBox"></div>
+      </form>
+    </div>
   </div>
 
-    <!-- Scripts (order matters) -->
-    <script src="config.js"></script>
-    <script src="estimation_rules.js"></script>
-    <script src="script_sow_new_carrier.js"></script>
-  </body>
+  <!-- Scripts (order matters) -->
+  <script>
+    // Add visual feedback for checkbox selection
+    document.addEventListener('DOMContentLoaded', () => {
+      const checkboxes = document.querySelectorAll('.checkbox-row input[type="checkbox"]');
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+          const item = this.closest('.checkbox-row');
+          if (this.checked) {
+            item.classList.add('checked');
+          } else {
+            item.classList.remove('checked');
+          }
+        });
+      });
+    });
+  </script>
+  <script src="config.js"></script>
+  <script src="estimation_rules.js"></script>
+  <script src="script_sow_new_carrier.js"></script>
+</body>
 </html>

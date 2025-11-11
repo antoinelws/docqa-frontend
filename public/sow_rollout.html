@@ -4,83 +4,486 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>New Rollout Estimation</title>
-  <link rel="stylesheet" href="style.css" />
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h2 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .form-content {
+      padding: 2.5rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
     .form-group {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin-bottom: 1rem;
+      flex-direction: column;
     }
-    .form-group label,
-    .form-group input,
-    .form-group select {
-      flex: 1 1 45%;
-      margin: 0.5rem;
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
     }
-    .container {
-      max-width: 960px;
-      margin: auto;
+
+    label {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    select, input {
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      background-color: white;
+      font-family: inherit;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .checkbox-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 2px solid #e0e0e0;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem;
+      background: white;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .checkbox-item:hover {
+      background: #f0f0f0;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 0.75rem;
+      cursor: pointer;
+      accent-color: #667eea;
+    }
+
+    .checkbox-item label {
+      margin: 0;
+      font-weight: 500;
+      font-size: 0.9rem;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .checkbox-item.checked {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .checkbox-item.checked label {
+      color: white;
+    }
+
+    .helper-text {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.5rem;
+      font-style: italic;
+    }
+
+    .btn-calculate {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    .btn-calculate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-calculate:active {
+      transform: translateY(0);
+    }
+
+    #rolloutResultBox {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;
+      color: #666;
+      white-space: pre-line;
+      line-height: 1.6;
+    }
+
+    #rolloutResultBox:empty {
+      display: none;
+    }
+
+    .icon {
+      display: inline-block;
+      margin-right: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .header h2 {
+        font-size: 1.5rem;
+      }
+
+      .form-content {
+        padding: 1.5rem;
+      }
+
+      .checkbox-group {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .question-number {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-size: 0.85rem;
+      margin-right: 0.5rem;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>New Rollout Estimation</h2>
-
-    <div class="form-group">
-      <label>How many location will be in scope?</label>
-      <select id="siteCount">
-        <option value="Only 1">Only 1</option>
-        <option value="2 to 5">2 to 5</option>
-        <option value="More than 5">More than 5</option>
-      </select>
-
-      <label>Where is your new location located?</label>
-      <select id="shipToRegion">
-        <option value="US">US</option>
-        <option value="EU">EU</option>
-        <option value="ASIA">ASIA</option>
-        <option value="AFRICA">AFRICA</option>
-      </select>
+    <div class="header">
+      <h2>🚀 New Rollout Estimation</h2>
+      <p>Calculate implementation effort for your ShipERP rollout</p>
     </div>
 
-    <div class="form-group">
-      <label>What ShipERP module will be used at this new location?</label>
-      <select multiple id="zEnhancementRollout">
-        <option value="Sales Order">Sales Order</option>
-        <option value="Core">Core</option>
-        <option value="Hazardous materials">Hazardous materials</option>
-        <option value="AES/ACE">AES/ACE</option>
-        <option value="Denied Party Services">Denied Party Services</option>
-        <option value="Address Validation">Address Validation</option>
-        <option value="Freight Audit">Freight Audit</option>
-        <option value="Carrier Portal">Carrier Portal</option>
-        <option value="Supplier Portal">Supplier Portal</option>
-      </select>
+    <form id="rolloutForm" class="form-content">
+      <div class="form-row">
+        <div class="form-group">
+          <label>
+            <span class="question-number">1</span>
+            How many locations will be in scope?
+          </label>
+          <select id="siteCount">
+            <option value="Only 1">Only 1</option>
+            <option value="2 to 5">2 to 5</option>
+            <option value="More than 5">More than 5</option>
+          </select>
+        </div>
 
-      <label>Will this new location be following the exact same shipping process and business rules than one existing location?</label>
-      <select id="blueprintNeeded">
-        <option value="Yes">Yes</option>
-        <option value="No">No</option>
-        <option value="More or less">More or less</option>
-      </select>
-    </div>
+        <div class="form-group">
+          <label>
+            <span class="question-number">2</span>
+            Where is your new location located?
+          </label>
+          <select id="shipToRegion">
+            <option value="US">United States</option>
+            <option value="EU">Europe</option>
+            <option value="ASIA">Asia</option>
+            <option value="AFRICA">Africa</option>
+          </select>
+        </div>
+      </div>
 
-    <div class="form-group">
-      <label>How many carriers will this new location be using through ShipERP?</label>
-      <select id="onlineOfflineRollout">
-        <option value="1 to 3">1 to 3</option>
-        <option value="3 to 10">3 to 10</option>
-        <option value="More than 10">More than 10</option>
-      </select>
-    </div>
+      <div class="form-row">
+        <div class="form-group full-width">
+          <label>
+            <span class="question-number">3</span>
+            What ShipERP modules will be used at this new location?
+          </label>
+          <div class="checkbox-group" id="modulesCheckboxGroup">
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_salesorder" name="modules" value="Sales Order">
+              <label for="mod_salesorder">Sales Order</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_core" name="modules" value="Core">
+              <label for="mod_core">Core</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_hazmat" name="modules" value="Hazardous materials">
+              <label for="mod_hazmat">Hazardous Materials</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_aes" name="modules" value="AES/ACE">
+              <label for="mod_aes">AES/ACE</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_denied" name="modules" value="Denied Party Services">
+              <label for="mod_denied">Denied Party Services</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_address" name="modules" value="Address Validation">
+              <label for="mod_address">Address Validation</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_freight" name="modules" value="Freight Audit">
+              <label for="mod_freight">Freight Audit</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_carrier" name="modules" value="Carrier Portal">
+              <label for="mod_carrier">Carrier Portal</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="mod_supplier" name="modules" value="Supplier Portal">
+              <label for="mod_supplier">Supplier Portal</label>
+            </div>
+          </div>
+          <span class="helper-text">Select all modules that apply</span>
+        </div>
+      </div>
 
-    <button onclick="submitRolloutEstimate()">Calculate Effort</button>
-    <div id="rolloutResultBox" style="margin-top: 2rem; font-size: 1.2rem; font-weight: bold;"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>
+            <span class="question-number">4</span>
+            Will this new location follow the exact same shipping process and business rules as an existing location?
+          </label>
+          <select id="blueprintNeeded">
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+            <option value="More or less">More or less</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>
+            <span class="question-number">5</span>
+            How many carriers will this new location be using through ShipERP?
+          </label>
+          <select id="onlineOfflineRollout">
+            <option value="1 to 3">1 to 3</option>
+            <option value="3 to 10">3 to 10</option>
+            <option value="More than 10">More than 10</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-calculate" onclick="submitRolloutEstimate(); return false;">
+        <span class="icon">📊</span>
+        Calculate Effort Estimation
+      </button>
+
+      <div id="rolloutResultBox"></div>
+    </form>
   </div>
-  <script src="config.js"></script>
-  <script src="estimation_rules.js"></script>
-  <script src="script_sow_rollout.js"></script>
+
+  <script>
+    // Embedded script for calculation based on Excel formula logic
+    (function () {
+      // Add visual feedback for checkbox selection
+      document.addEventListener('DOMContentLoaded', () => {
+        const checkboxes = document.querySelectorAll('.checkbox-item input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+          cb.addEventListener('change', function() {
+            const item = this.closest('.checkbox-item');
+            if (this.checked) {
+              item.classList.add('checked');
+            } else {
+              item.classList.remove('checked');
+            }
+          });
+        });
+      });
+
+      function applyDefaultInputs() {
+        document.querySelectorAll("select").forEach(sel => {
+          const anySelected = Array.from(sel.options).some(o => o.selected);
+          if (!anySelected && sel.options.length) {
+            sel.options[0].selected = true;
+          }
+        });
+      }
+
+      const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value || "" : "";
+      };
+
+      const getCheckedModules = () => {
+        return Array.from(document.querySelectorAll('input[name="modules"]:checked'))
+          .map(cb => cb.value);
+      };
+
+      function calculateEstimate() {
+        const siteCount = getVal("siteCount");
+        const shipToRegion = getVal("shipToRegion");
+        const blueprintNeeded = getVal("blueprintNeeded");
+        const onlineCarriers = getVal("onlineOfflineRollout");
+        const modules = getCheckedModules();
+
+        // Excel formula logic:
+        // If blueprintNeeded = "No" → return "16 hours Blueprint/Workshop required"
+        if (blueprintNeeded === "No") {
+          return {
+            total_effort: 16,
+            breakdown: "A 16 hours Blueprint/Workshop would be required",
+            requiresBlueprint: true
+          };
+        }
+
+        // If carriers is not "1 to 3" → return 99
+        if (onlineCarriers !== "1 to 3") {
+          return {
+            total_effort: 99,
+            breakdown: "Custom estimation required due to carrier count",
+            customEstimate: true
+          };
+        }
+
+        // Calculate base hours based on siteCount
+        let baseHours = 0;
+        switch (siteCount) {
+          case "Only 1":
+            baseHours = 40;
+            break;
+          case "2 to 5":
+            baseHours = 120;
+            break;
+          case "More than 5":
+            baseHours = 200;
+            break;
+          default:
+            baseHours = 99;
+        }
+
+        // Add 16 hours if region is not US
+        const regionHours = (shipToRegion === "US") ? 0 : 16;
+        const total = baseHours + regionHours;
+
+        return {
+          total_effort: total,
+          breakdown: `Base hours (${siteCount}): ${baseHours}h\nRegion adjustment (${shipToRegion}): ${regionHours}h\nSelected modules: ${modules.length > 0 ? modules.join(', ') : 'None'}`,
+          baseHours,
+          regionHours
+        };
+      }
+
+      function run() {
+        const resultBox = document.getElementById("rolloutResultBox");
+        if (!resultBox) return;
+
+        try {
+          const est = calculateEstimate();
+          
+          if (est && est.total_effort != null) {
+            let message = `✅ Estimated Effort: ${est.total_effort} hours`;
+            if (est.breakdown) {
+              message += `\n\n${est.breakdown}`;
+            }
+            resultBox.textContent = message;
+            
+            if (est.requiresBlueprint) {
+              resultBox.style.background = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
+              resultBox.style.color = "white";
+            } else if (est.customEstimate) {
+              resultBox.style.background = "linear-gradient(135deg, #fa709a 0%, #fee140 100%)";
+              resultBox.style.color = "#333";
+            } else {
+              resultBox.style.background = "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)";
+              resultBox.style.color = "#333";
+            }
+          } else {
+            resultBox.textContent = "❌ Unable to calculate estimation.";
+            resultBox.style.background = "#ffebee";
+            resultBox.style.color = "#c62828";
+          }
+        } catch (err) {
+          console.error(err);
+          resultBox.textContent = `❌ Error: ${err.message}`;
+          resultBox.style.background = "#ffebee";
+          resultBox.style.color = "#c62828";
+        }
+      }
+
+      window.submitRolloutEstimate = run;
+
+      document.addEventListener("DOMContentLoaded", () => {
+        applyDefaultInputs();
+        
+        document.getElementById("rolloutForm")?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          run();
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

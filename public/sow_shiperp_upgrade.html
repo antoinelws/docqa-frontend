@@ -6,76 +6,350 @@
   <title>ShipERP Upgrade Estimation</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    .form-group {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin-bottom: 1rem;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    .form-group label,
-    .form-group input,
-    .form-group select {
-      flex: 1 1 45%;
-      margin: 0.5rem;
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem 1rem;
     }
+
     .container {
       max-width: 960px;
-      margin: auto;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h2 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .form-content {
+      padding: 2.5rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    select, input[type="text"], input[type="email"], input[type="number"] {
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      background-color: white;
+      font-family: inherit;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    fieldset {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      background: #f8f9fa;
+    }
+
+    legend {
+      padding: 0 0.75rem;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #333;
+    }
+
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem;
+      background: white;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .checkbox-row:hover {
+      background: #f0f0f0;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 0.75rem;
+      cursor: pointer;
+      accent-color: #667eea;
+    }
+
+    .checkbox-row.checked {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .checkbox-row label {
+      margin: 0;
+      font-weight: 500;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .btn.primary {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    .btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn.primary:active {
+      transform: translateY(0);
+    }
+
+    #upgradeResultBox {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      min-height: 60px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;
+      color: #666;
+      white-space: pre-line;
+      line-height: 1.6;
+    }
+
+    #upgradeResultBox.show {
+      display: flex;
+    }
+
+    .icon {
+      display: inline-block;
+      margin-right: 0.5rem;
+    }
+
+    .question-number {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-size: 0.85rem;
+      margin-right: 0.5rem;
+      font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .header h2 {
+        font-size: 1.5rem;
+      }
+
+      .form-content {
+        padding: 1.5rem;
+      }
+
+      .checkbox-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>ShipERP Upgrade Estimation</h2>
-
-    <div class="form-group">
-      <label>What's your current ShipERP Version?</label>
-      <select id="shiperpVersionUpgrade">
-        <option value="Above 4.5">Above 4.5</option>
-        <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
-        <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
-        <option value="Lower than 3.6">Lower than 3.6</option>
-      </select>
-
-      <label>How many Z enhancement do you currently have with ShipERP?</label>
-      <select id="zenhancementsUpgrade">
-        <option value="1 to 10">1 to 10</option>
-        <option value="10 to 50">10 to 50</option>
-        <option value="50 to 100">50 to 100</option>
-        <option value="More than 100">More than 100</option>
-      </select>
+    <div class="header">
+      <h2>⬆️ ShipERP Upgrade Estimation</h2>
+      <p>Calculate the effort required for your ShipERP upgrade</p>
     </div>
 
-    <div class="form-group">
-      <label>How many ONLINE carriers are you currently using in production, through ShipERP?</label>
-      <select id="onlineCarrierCountUpgrade">
-        <option value="1 to 5">1 to 5</option>
-        <option value="6 to 10">6 to 10</option>
-        <option value="More than 10">More than 10</option>
-      </select>
+    <div class="form-content">
+      <form id="formUpgradeEstimate" onsubmit="return false;">
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">1</span>
+              What's your current ShipERP Version?
+            </label>
+            <select id="shiperpVersionUpgrade">
+              <option value="Above 4.5">Above 4.5</option>
+              <option value="Between 4.0 and 4.5">Between 4.0 and 4.5</option>
+              <option value="Between 3.6 and 3.9">Between 3.6 and 3.9</option>
+              <option value="Lower than 3.6">Lower than 3.6</option>
+            </select>
+          </div>
 
-      <label>Do you use ShipEWM?</label>
-      <select id="ewmUsageUpgrade">
-        <option value="Yes">Yes</option>
-        <option value="No">No</option>
-      </select>
+          <div class="form-group">
+            <label>
+              <span class="question-number">2</span>
+              How many Z enhancement do you currently have with ShipERP?
+            </label>
+            <select id="zenhancementsUpgrade">
+              <option value="1 to 10">1 to 10</option>
+              <option value="10 to 50">10 to 50</option>
+              <option value="50 to 100">50 to 100</option>
+              <option value="More than 100">More than 100</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">3</span>
+              How many ONLINE carriers are you currently using in production, through ShipERP?
+            </label>
+            <select id="onlineCarrierCountUpgrade">
+              <option value="1 to 5">1 to 5</option>
+              <option value="6 to 10">6 to 10</option>
+              <option value="More than 10">More than 10</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <span class="question-number">4</span>
+              Do you use ShipEWM?
+            </label>
+            <select id="ewmUsageUpgrade">
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset>
+          <legend>
+            <span class="question-number">5</span>
+            What ShipERP modules are you currently using?
+          </legend>
+          <div class="checkbox-grid" id="modulesGrid">
+            <div class="checkbox-row">
+              <input type="checkbox" id="mod_salesorder" name="modulesUsed" value="Sales Order" />
+              <label for="mod_salesorder">Sales Order</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="mod_aes" name="modulesUsed" value="AES/ACE" />
+              <label for="mod_aes">AES/ACE</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="mod_address" name="modulesUsed" value="Address Validation" />
+              <label for="mod_address">Address Validation</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="mod_tracking" name="modulesUsed" value="Tracking" />
+              <label for="mod_tracking">Tracking</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="mod_hazmat" name="modulesUsed" value="Hazmat" />
+              <label for="mod_hazmat">Hazmat</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="mod_other" name="modulesUsed" value="Other" />
+              <label for="mod_other">Other</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <button class="btn primary" onclick="submitUpgradeEstimate()">
+          <span class="icon">📊</span>
+          <span>Calculate Effort Estimation</span>
+        </button>
+        
+        <div id="upgradeResultBox"></div>
+      </form>
     </div>
-
-    <div class="form-group">
-      <label>What ShipERP modules are you currently using?</label>
-      <select multiple id="modulesUsedUpgrade">
-        <option value="Sales Order">Sales Order</option>
-        <option value="AES/ACE">AES/ACE</option>
-        <option value="Address Validation">Address Validation</option>
-        <option value="Tracking">Tracking</option>
-        <option value="Hazmat">Hazmat</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
-
-    <button onclick="submitUpgradeEstimate()">Calculate Effort</button>
-    <div id="upgradeResultBox" style="margin-top: 2rem; font-size: 1.2rem; font-weight: bold;"></div>
   </div>
+
+  <!-- Scripts (order matters) -->
+  <script>
+    // Add visual feedback for checkbox selection
+    document.addEventListener('DOMContentLoaded', () => {
+      const checkboxes = document.querySelectorAll('.checkbox-row input[type="checkbox"]');
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+          const item = this.closest('.checkbox-row');
+          if (this.checked) {
+            item.classList.add('checked');
+          } else {
+            item.classList.remove('checked');
+          }
+        });
+      });
+    });
+  </script>
   <script src="config.js"></script>
   <script src="estimation_rules.js"></script>
   <script src="script_sow_upgrade.js"></script>

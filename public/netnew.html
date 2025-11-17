@@ -15,7 +15,14 @@
     .rate-card { background: var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px; }
     .rate-card h3 { margin:0 0 8px; font-size:14px; color:var(--muted); font-weight:600; }
     .rate-grid { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
-    input[type="number"], input[type="text"] { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#081226; color:var(--ink); }
+    input[type="number"], input[type="text"], select {
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#081226;
+      color:var(--ink);
+    }
     .search { grid-column: 1 / -1; }
     .actions { display:flex; gap:10px; }
     button { background: linear-gradient(180deg, #1a2a4a, #13223d); color:white; border:1px solid #27416f; border-radius:10px; padding:10px 12px; cursor:pointer; }
@@ -52,6 +59,42 @@
     .totals .hrs, .totals .usd { padding:8px 10px; background: var(--panel); border:1px solid var(--border); border-left:none; }
     .totals .usd { border-radius:0 8px 8px 0; text-align:right; }
     .hl { color:#a7d6ff; }
+
+    /* NEW: quote actions area */
+    .quote-actions {
+      margin-top: 24px;
+      max-width: 880px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .quote-actions .field {
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      font-size:14px;
+    }
+    .quote-actions label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .quote-actions-status {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 640px) {
+      .quote-actions {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -95,6 +138,24 @@
     <div class="row2"><div class="lbl">Discount %</div><div class="hrs"><input id="C88" type="number" min="0" max="100" step="1" value="0"></div><div class="usd" id="E88">$0</div></div>
     <div class="row2"><div class="lbl">Discount $</div><div class="hrs"><input id="C89" type="number" min="0" step="1" value="0"></div><div class="usd" id="E89">$0</div></div>
     <div class="row2"><div class="lbl">Total After Discount</div><div class="hrs" id="D90">—</div><div class="usd" id="E90">$0</div></div>
+  </div>
+
+  <!-- NEW: Sales Rep dropdown + Save button -->
+  <div class="quote-actions" id="quoteActions">
+    <div class="field">
+      <label for="salesRep">Sales Rep</label>
+      <select id="salesRep">
+        <option value="">Select a Sales Rep…</option>
+        <option value="Jeff Gleason">Jeff Gleason</option>
+        <option value="Kirk Logan">Kirk Logan</option>
+      </select>
+    </div>
+    <div class="field">
+      <button id="saveQuote">Save the quote</button>
+    </div>
+    <div class="quote-actions-status" id="saveQuoteStatus">
+      Select a Sales Rep and click “Save the quote” to prepare an email.
+    </div>
   </div>
 
 <script>
@@ -703,6 +764,93 @@ function recalc() {
   document.getElementById('E90').textContent = fmtUSD(E90);
 }
 
+/* Build the text extract to send in the email */
+function buildQuoteExtract() {
+  const lines = [];
+  const salesRep = document.getElementById('salesRep').value || 'N/A';
+  const rateStd = document.getElementById('rateStd').value || '';
+  const rateCtr = document.getElementById('rateCtr').value || '';
+
+  lines.push('ShipERP Effort & Cost Estimator - Quote');
+  lines.push('Generated: ' + new Date().toLocaleString());
+  lines.push('');
+  lines.push('Sales Rep: ' + salesRep);
+  lines.push('');
+  lines.push('Rates:');
+  lines.push('  Standard Rate: ' + rateStd);
+  lines.push('  Contract Rate: ' + (rateCtr || 'Using standard rate'));
+  lines.push('');
+
+  function appendNodes(title, nodes) {
+    lines.push('=== ' + title + ' ===');
+    nodes.forEach(n => {
+      if (n.type === 'item') {
+        const qty = Number(n._qtyEl?.value || 0);
+        if (qty > 0) {
+          const lh = (n.unit_hours || 0) * qty;
+          lines.push('- ' + (n.code ? n.code + ' ' : '') + n.name +
+            ' | Qty: ' + qty +
+            ' | Unit hours: ' + (n.unit_hours || 0) +
+            ' | Line hours: ' + lh);
+        }
+      } else if (n.type === 'parent') {
+        (n.children || []).forEach(ch => {
+          const qty = Number(ch._qtyEl?.value || 0);
+          if (qty > 0) {
+            const lh = (ch.unit_hours || 0) * qty;
+            lines.push('- ' + (ch.code ? ch.code + ' ' : '') + ch.name +
+              ' | Qty: ' + qty +
+              ' | Unit hours: ' + (ch.unit_hours || 0) +
+              ' | Line hours: ' + lh);
+          }
+        });
+      }
+    });
+    lines.push('');
+  }
+
+  appendNodes('ShipERP ECC/S4', ECC);
+  appendNodes('ShipERP EWM', EWM);
+
+  const txt = (id) => document.getElementById(id).textContent;
+  const otherFunc = document.getElementById('C85').value || '0';
+  const discPct = document.getElementById('C88').value || '0';
+  const discAmt = document.getElementById('C89').value || '0';
+
+  lines.push('Totals:');
+  lines.push('  ECC / S/4 Total hours: ' + txt('D82') + ' | Amount: ' + txt('E82'));
+  lines.push('  EWM Total hours: ' + txt('D83') + ' | Amount: ' + txt('E83'));
+  lines.push('  Other Functionality Sold hours: ' + otherFunc + ' | Amount: ' + txt('E84'));
+  lines.push('  Blueprint Total hours: ' + txt('D85') + ' | Amount: ' + txt('E85'));
+  lines.push('  Grand Total hours: ' + txt('D86') + ' | Amount: ' + txt('E86'));
+  lines.push('  Project Management Total hours: ' + txt('D87') + ' | Amount: ' + txt('E87'));
+  lines.push('  Discount %: ' + discPct + '% | Discount $: ' + discAmt);
+  lines.push('  Total After Discount: ' + txt('E90'));
+
+  return lines.join('\n');
+}
+
+/* Handle Save the quote click: open pre-filled email */
+function setupSaveQuote() {
+  const btn = document.getElementById('saveQuote');
+  const statusEl = document.getElementById('saveQuoteStatus');
+  btn.addEventListener('click', () => {
+    const salesRepSelect = document.getElementById('salesRep');
+    if (!salesRepSelect.value) {
+      alert('Please select a Sales Rep before saving the quote.');
+      salesRepSelect.focus();
+      return;
+    }
+
+    const body = encodeURIComponent(buildQuoteExtract());
+    const subject = encodeURIComponent('ShipERP Quote - ' + new Date().toLocaleString());
+    const mailto = 'mailto:antoine.lws@gmail.com?subject=' + subject + '&body=' + body;
+
+    statusEl.textContent = 'Preparing email in your default mail client…';
+    window.location.href = mailto;
+  });
+}
+
 document.getElementById('q').addEventListener('input', (e) => {
   filterQ = e.target.value.trim().toLowerCase();
   render();
@@ -722,6 +870,7 @@ document.getElementById('C88').addEventListener('input', recalc);
 document.getElementById('C89').addEventListener('input', recalc);
 
 render();
+setupSaveQuote();
 </script>
 </body>
 </html>

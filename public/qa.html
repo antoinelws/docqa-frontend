@@ -38,11 +38,12 @@
 <script>
   function askQuestion() {
     console.log("askQuestion triggered");
-    const email = localStorage.getItem("shiperp_user_email");
-    if (!email) {
-      window.location.href = "login.html?role=internal"; // ou role=customer selon la version
-    return;
-    }
+  const email = localStorage.getItem("shiperp_user_email");
+
+  if (!email) {
+    // On ne sait pas si c'est internal ou customer ⇒ on redirige vers login générique
+    window.location.href = "login.html";
+  }
     const question = document.getElementById("question").value;
 
     const formData = new FormData();

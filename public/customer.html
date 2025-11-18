@@ -15,4 +15,19 @@
     </div>
   </div>
 </body>
+ <script>
+  function getEmailOrRedirect() {
+    const email = localStorage.getItem("shiperp_user_email");
+    const role = localStorage.getItem("shiperp_user_role");
+
+    if (!email || role !== "customer") {
+      window.location.href = "login.html?role=customer";
+      return null;
+    }
+
+    return email;
+  }
+
+  getEmailOrRedirect();
+</script> 
 </html>

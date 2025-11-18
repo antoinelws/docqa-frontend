@@ -159,6 +159,43 @@
   </div>
 
 <script>
+  
+  /************ EmailJS (NetNew quote) ************/
+const QUOTE_EMAILJS = {
+  SERVICE_ID:  "service_x8qqp19",
+  TEMPLATE_ID: "template_j3fkvg4", // body: <html><body>{{{message_html}}}</body></html>
+  USER_ID:     "PuZpMq1o_LbVO4IMJ",
+  TO_EMAIL:    "antoine.lws@gmail.com",      // <— target email for this page
+};
+
+async function sendQuoteViaEmailJS({ subject, replyTo, messageHtml }) {
+  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      service_id: QUOTE_EMAILJS.SERVICE_ID,
+      template_id: QUOTE_EMAILJS.TEMPLATE_ID,
+      user_id: QUOTE_EMAILJS.USER_ID,
+      template_params: {
+        subject,
+        to_email: QUOTE_EMAILJS.TO_EMAIL,
+        reply_to: replyTo || "",
+        message_html: messageHtml
+      }
+    })
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function rate() {
   const std = Number(document.getElementById('rateStd').value || 0);
   const ctr = Number(document.getElementById('rateCtr').value || 0);
@@ -830,26 +867,59 @@ function buildQuoteExtract() {
   return lines.join('\n');
 }
 
-/* Handle Save the quote click: open pre-filled email */
+/* Handle Save the quote click: send via EmailJS */
 function setupSaveQuote() {
   const btn = document.getElementById('saveQuote');
   const statusEl = document.getElementById('saveQuoteStatus');
-  btn.addEventListener('click', () => {
+
+  btn.addEventListener('click', async () => {
     const salesRepSelect = document.getElementById('salesRep');
+
     if (!salesRepSelect.value) {
       alert('Please select a Sales Rep before saving the quote.');
       salesRepSelect.focus();
       return;
     }
 
-    const body = encodeURIComponent(buildQuoteExtract());
-    const subject = encodeURIComponent('ShipERP Quote - ' + new Date().toLocaleString());
-    const mailto = 'mailto:antoine.lws@gmail.com?subject=' + subject + '&body=' + body;
+    // Build the plain-text extract we already generate
+    const extractText = buildQuoteExtract();
 
-    statusEl.textContent = 'Preparing email in your default mail client…';
-    window.location.href = mailto;
+    // Wrap it in HTML for EmailJS template
+    const messageHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;">
+        <h2 style="margin:0 0 6px 0;">NetNew Pricebook – Quote</h2>
+        <p style="margin:4px 0;"><strong>Sales Rep:</strong> ${escapeHtml(salesRepSelect.value)}</p>
+        <h3 style="margin:10px 0 4px;">Quote extract</h3>
+        <pre style="background:#f7f7f7;border:1px solid #ddd;padding:10px;white-space:pre-wrap;font-family:Consolas,monospace;font-size:12px;">
+${escapeHtml(extractText)}
+        </pre>
+      </div>
+    `;
+
+    const subject = `NetNew Quote | ${salesRepSelect.value} | ${new Date().toLocaleString()}`;
+
+    try {
+      statusEl.textContent = 'Sending quote via email…';
+      btn.disabled = true;
+
+      await sendQuoteViaEmailJS({
+        subject,
+        replyTo: "",              // you can plug a user email here if you add a field later
+        messageHtml
+      });
+
+      statusEl.textContent = 'Quote successfully sent to antoine.lws@gmail.com.';
+      alert('The quote has been emailed to Antoine.');
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Error sending quote. Please try again or contact support.';
+      alert('There was an error sending the email:\n' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
 }
+
 
 document.getElementById('q').addEventListener('input', (e) => {
   filterQ = e.target.value.trim().toLowerCase();

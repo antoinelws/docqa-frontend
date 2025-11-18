@@ -40,7 +40,11 @@
 <script>
   function askQuestion() {
     console.log("askQuestion triggered");
-    const email = document.getElementById("email").value;
+    const email = localStorage.getItem("shiperp_user_email");
+    if (!email) {
+      window.location.href = "login.html?role=internal"; // ou role=customer selon la version
+    return;
+    }
     const question = document.getElementById("question").value;
 
     const formData = new FormData();

@@ -13,6 +13,14 @@
     .btn.primary:hover{background:#0a2f4a}
   </style>
 </head>
+  <script>
+  const email = localStorage.getItem("shiperp_user_email");
+
+  if (!email) {
+    window.location.href = "login.html?role=customer";
+  }
+</script>
+
 <body>
   <div class="container">
     <h2>New Rollout – Request Form</h2>

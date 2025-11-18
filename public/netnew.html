@@ -157,16 +157,75 @@
       Select a Sales Rep and click “Save the quote” to prepare an email.
     </div>
   </div>
-
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
   
-  /************ EmailJS (NetNew quote) ************/
+/************ EmailJS – NetNew Quote ************/
 const QUOTE_EMAILJS = {
-  SERVICE_ID:  "service_x8qqp19",
-  TEMPLATE_ID: "template_j3fkvg4", // body: <html><body>{{{message_html}}}</body></html>
+  SERVICE_ID:  "service_x8qqp19",           // same as your other forms
+  TEMPLATE_ID: "template_7whkrog",     // <-- replace with your new template ID
   USER_ID:     "PuZpMq1o_LbVO4IMJ",
-  TO_EMAIL:    "antoine.lws@gmail.com",      // <— target email for this page
+  TO_EMAIL:    "antoine.lws@gmail.com",
 };
+
+async function sendQuoteViaEmailJS({ subject, messageHtml, extraParams = {} }) {
+  const payload = {
+    service_id: QUOTE_EMAILJS.SERVICE_ID,
+    template_id: QUOTE_EMAILJS.TEMPLATE_ID,
+    user_id: QUOTE_EMAILJS.USER_ID,
+    template_params: {
+      subject,
+      to_email: QUOTE_EMAILJS.TO_EMAIL,
+      message_html: messageHtml || "",
+      ...extraParams,                       // sales_rep, generated_at, quote_pdf, etc.
+    }
+  };
+
+  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+}
+
+/************ PDF generator (returns base64 only) ************/
+async function generateQuotePdfBase64() {
+  // You can target a specific container instead of the whole body if you want
+  const element = document.body;
+
+  const canvas = await html2canvas(element, { scale: 2 });
+  const imgData = canvas.toDataURL("image/jpeg", 0.98);
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("p", "pt", "a4");
+
+  const pageWidth  = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  const imgWidth  = pageWidth;
+  const imgHeight = canvas.height * imgWidth / canvas.width;
+
+  let heightLeft = imgHeight;
+  let position = 0;
+
+  pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+
+  while (heightLeft > 0) {
+    pdf.addPage();
+    position = heightLeft - imgHeight;
+    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+
+  // data:application/pdf;base64,.... → we only need the raw base64 part
+  const dataUrl = pdf.output("datauristring"); 
+  const base64 = dataUrl.split(",")[1];  // after "data:application/pdf;base64,"
+  return base64;
+}
 
 async function sendQuoteViaEmailJS({ subject, replyTo, messageHtml }) {
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {

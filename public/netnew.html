@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ShipERP Effort & Cost Estimator (V9 – Dark)</title>
+  <style>
+    :root { --bg:#0b1220; --panel:#0d1528; --ink:#e5eefc; --muted:#9bb0d3; --border:#1c2a4a; --accent:#57b2ff; --guide:#c8d0db; }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:24px; font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Arial, sans-serif; background:#0b1220; color: var(--ink); }
+    h1 { margin:0 0 6px; font-size:26px; }
+    p.sub { margin:0 0 18px; color: var(--muted); }
+
+    .top { display:grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items:end; }
+    .rate-card { background: var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px; }
+    .rate-card h3 { margin:0 0 8px; font-size:14px; color:var(--muted); font-weight:600; }
+    .rate-grid { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    input[type="number"], input[type="text"], select {
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#081226;
+      color:var(--ink);
+    }
+    .search { grid-column: 1 / -1; }
+    .actions { display:flex; gap:10px; }
+    button { background: linear-gradient(180deg, #1a2a4a, #13223d); color:white; border:1px solid #27416f; border-radius:10px; padding:10px 12px; cursor:pointer; }
+    button:hover { filter:brightness(1.08); }
+
+    .section { margin-top: 20px; }
+    .category { background: var(--panel); border:1px solid var(--border); border-radius:12px; margin-bottom:14px; }
+    .cat-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--border); }
+    .cat-title { font-weight:800; }
+
+    .grid-head { display:grid; grid-template-columns: 1.6fr 90px 110px 120px 1fr 120px; gap:10px; padding:10px 14px; border-bottom:1px dashed #142241; color: var(--muted); }
+    .row { display:grid; grid-template-columns: 1.6fr 90px 110px 120px 1fr 120px; gap:10px; align-items:start; padding:10px 14px; border-bottom:1px dashed #142241; position:relative; }
+    .row:last-child { border-bottom:none; }
+    .right { text-align:right; }
+    .name { font-weight:600; }
+
+    .parent { padding:10px 14px; border-bottom:1px solid var(--border); background:#0e1a31; display:flex; justify-content:space-between; align-items:center; position:relative; }
+    .parent .pname { font-size: inherit; font-weight:600; }
+    .parent .pcode { font-weight:700; margin-right:8px; opacity:.85; }
+    .parent button { padding:6px 10px; font-size:12px; }
+
+    .children { position:relative; margin:0; padding:0; }
+    .children::before { content:""; position:absolute; top:0; bottom:0; left:20px; width:0; border-left:1px solid var(--guide); opacity:.7; }
+
+    .child { padding-left: 36px; }
+    .child::before { content:""; position:absolute; left:20px; top:24px; width:16px; border-top:1px solid var(--guide); opacity:.7; }
+
+    .detail { grid-column: 1 / -1; color: var(--muted); font-size: 13px; white-space:pre-wrap; padding-left: 56px; margin-top:-6px; position:relative; }
+    .detail::before { content:""; position:absolute; left:20px; top:0.9em; width:36px; border-top:1px solid var(--guide); opacity:.7; }
+
+    .totals { margin-top: 18px; display:grid; grid-template-columns: 1fr 160px 180px; gap:8px; max-width: 880px; }
+    .totals .row2 { display: contents; }
+    .totals .lbl { padding:8px 10px; background: var(--panel); border:1px solid var(--border); border-radius:8px 0 0 8px; }
+    .totals .hrs, .totals .usd { padding:8px 10px; background: var(--panel); border:1px solid var(--border); border-left:none; }
+    .totals .usd { border-radius:0 8px 8px 0; text-align:right; }
+    .hl { color:#a7d6ff; }
+
+    /* NEW: quote actions area */
+    .quote-actions {
+      margin-top: 24px;
+      max-width: 880px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .quote-actions .field {
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      font-size:14px;
+    }
+    .quote-actions label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .quote-actions-status {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 640px) {
+      .quote-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>ShipERP Effort & Cost Estimator</h1>
+  <p class="sub">Dark theme V9. Catégories (Freight Audit, Portal, Carriers, Fiori…) → Sous-modules → Détails, avec indentation & lignes guides.</p>
+
+  <div class="top">
+    <div class="rate-card">
+      <h3>Rates</h3>
+      <div class="rate-grid">
+        <div>
+          <label for="rateStd">Standard Rate (B4)</label>
+          <input id="rateStd" type="number" min="0" step="1" value="215">
+        </div>
+        <div>
+          <label for="rateCtr">Contract Rate (B5)</label>
+          <input id="rateCtr" type="number" min="0" step="1" placeholder="Leave empty to use standard" value="">
+        </div>
+        <div class="search" style="grid-column:1/-1;">
+          <label for="q">Search</label>
+          <input id="q" type="text" placeholder="Filter by code or name…">
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="expandAll">Expand all</button>
+      <button id="collapseAll">Collapse all</button>
+    </div>
+  </div>
+
+  <div id="list" class="section"></div>
+
+  <h2>Totals</h2>
+  <div class="totals" id="totals">
+    <div class="row2"><div class="lbl">ECC / S/4 Total</div><div class="hrs" id="D82">0</div><div class="usd" id="E82">$0</div></div>
+    <div class="row2"><div class="lbl">EWM Total</div><div class="hrs" id="D83">0</div><div class="usd" id="E83">$0</div></div>
+    <div class="row2"><div class="lbl">Other Functionality Sold</div><div class="hrs"><input id="C85" type="number" min="0" step="1" value="0"></div><div class="usd" id="E84">$0</div></div>
+    <div class="row2"><div class="lbl">Blueprint Total</div><div class="hrs" id="D85">40</div><div class="usd" id="E85">$0</div></div>
+    <div class="row2"><div class="lbl">Grand Total</div><div class="hrs" id="D86">0</div><div class="usd" id="E86">$0</div></div>
+    <div class="row2"><div class="lbl">Project Management Total (<span id="PMpctLbl">20%</span>)</div><div class="hrs" id="D87">0</div><div class="usd" id="E87">$0</div></div>
+    <div class="row2"><div class="lbl">Discount %</div><div class="hrs"><input id="C88" type="number" min="0" max="100" step="1" value="0"></div><div class="usd" id="E88">$0</div></div>
+    <div class="row2"><div class="lbl">Discount $</div><div class="hrs"><input id="C89" type="number" min="0" step="1" value="0"></div><div class="usd" id="E89">$0</div></div>
+    <div class="row2"><div class="lbl">Total After Discount</div><div class="hrs" id="D90">—</div><div class="usd" id="E90">$0</div></div>
+  </div>
+
+  <!-- NEW: Sales Rep dropdown + Save button -->
+  <div class="quote-actions" id="quoteActions">
+    <div class="field">
+      <label for="salesRep">Sales Rep</label>
+      <select id="salesRep">
+        <option value="">Select a Sales Rep…</option>
+        <option value="Jeff Gleason">Jeff Gleason</option>
+        <option value="Kirk Logan">Kirk Logan</option>
+      </select>
+    </div>
+    <div class="field">
+      <button id="saveQuote">Save the quote</button>
+    </div>
+    <div class="quote-actions-status" id="saveQuoteStatus">
+      Select a Sales Rep and click “Save the quote” to prepare an email.
+    </div>
+  </div>
+
+<script>
+function rate() {
+  const std = Number(document.getElementById('rateStd').value || 0);
+  const ctr = Number(document.getElementById('rateCtr').value || 0);
+  return (ctr > 0 ? ctr : std) || 0;
+}
+function fmtUSD(n) { return isFinite(n) ? '$' + Math.round(n).toLocaleString() : '$0'; }
+
+const ECC = [
+  {
+    type: "item",
+    code: null,
+    name: "Core (Leave Blank if Shipping in EWM)",
+    unit_hours: 200.0,
+    qty: 1,
+    assumptions: "Assumptions:\nThe provided estimate covers one complete project cycle, including SIT, UAT, Go-Live, and Hypercare phases with 3 system landscape (Dev, Quality and Prod).\n\nIt is expected that an IT SME from the client side will be available to support the ShipERP project throughout the implementation.\nSIT and UAT Test cases and expected results will be documented and shared by client.\nSIT and UAT are expected to be completed within the agreed project timeline. Any extension of timelines or increase in review/meeting frequency may have an impact on the overall project budget.\nIf Quickpack is a part of scope - should only be used for domestic shipments",
+    details: ["*Pre and Post installation activities\n*Core config including all approved  Business rules\n* ShipERP end to end testing\n*SIT support \n*UAT Support (Including Train the Triner)\n*Go-Live\n*Hypercare (2 weeks)"]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Address Validation",
+    unit_hours: 24.0,
+    qty: 1,
+    assumptions: "Previously:40\n\"ShipERP is dependent on external APIs (e.g., FedEx, UPS). Any API limitations, restrictions, or access dependencies should be taken into consideration during the project.\n\nwith Sales order module + 16 hours\nEDI involved : more digging required for estimation\n\nAny potential conflicts with Taxware address validation must be identified and reviewed during the project implementation phase.\"",
+    details: ["*** Only ShipERP standard validations"]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Planning/TM",
+    unit_hours: 40.0,
+    qty: 1,
+    assumptions: "No automated consolidation\nTrailer Management is not a part of estimates\nScope of Tendering multi-leg need to be discussed before finalizing the estimates",
+    details: ["Outputs (BOL, Pallet Labels)"]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Sales Order Integration",
+    unit_hours: 40.0,
+    qty: 0,
+    assumptions: "Assumptions :\nBasic Packproposal based on weight and volume  only in scope , Rate shop accuracy in Sales order depends on pack proposal \n\nBasic Shipset ( Shipping Point , Loading Date , Schedule Lines ) ** Any other custom Requirements ( Based on material Type , Material , Hazmat type , Special indicator ) based Shipset are not part of this requirement.\n*** Sales order Rate captured in Pricing condition at line item level *** Automatic roll-up to header level by SAP. Cummulative add/Delete is not supported at present for partial shipments.",
+    details: []
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Hazmat",
+    unit_hours: 80.0,
+    qty: 0,
+    assumptions: "Assumptions\n\n3 carriers included - ( DHL , UPS , FedEx). \nIf additional carriers : estimation will have to be (re)done\n\nDG-certified experts will provide all required Dangerous Goods (DG) scenarios and assist in completing DG-specific table data.\n\nApproximately 10–15 UN numbers are in scope. If the number of UN numbers increases significantly, a re-estimation will be required, or a discussion with the business team will be needed to confirm the testing scope.\n\nPre-printed labels will not be generated from ShipERP.\n\nDGIS requires a separate license and implementation cost, which is not included in this estimate.\n\nMinus 40 hours if batteries shipping only",
+    details: [
+      "Number of Regulations (IATA and CFR) - Small Parcel \nOutput forms ( DGD- IATA , PSN , CMR , OP950 , FedEx/UPS forms ( 6 part and 8 part forms) \nDefault Support ( DHL , UPS , FedEx). \nOffline Hazmat shipping label. \nSegregation check in ShipERPn only; **Not linked with shipset or split logic**\nEOD Per carrier / Shipping point Manifest"
+    ]
+  },
+
+  /* Freight Audit group */
+  {
+    type: "parent",
+    code: null,
+    name: "Freight Audit",
+    unit_hours: 0,
+    qty: 0,
+    assumptions: "",
+    details: [],
+    children: [
+      {
+        type: "item",
+        code: null,
+        name: "Audit",
+        unit_hours: 40.0,
+        qty: 0,
+        assumptions: "Standard ShipERP mapping should be used for the base carriers. For additional carriers, it wil be 8 hours per carrier.",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Pay (Standard Mapping Only)",
+        unit_hours: 30.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Carriers (3 standard SP carriers and 3 offline LTL carriers)",
+        unit_hours: 40.0,
+        qty: 0,
+        assumptions: "",
+        details: [
+          "*   If EDI is used the customer will be responsible for the EDI setup and mappings\n** If carrier portal is used for invoice upload Carrier Portal module must be selected as well"
+        ]
+      }
+    ]
+  },
+
+  {
+    type: "item",
+    code: null,
+    name: "Denied Parties Screening",
+    unit_hours: 40.0,
+    qty: 0,
+    assumptions: "*Sales to inform customer that MK Denial license needs to be bought seperately",
+    details: ["*Sales to inform customer that MK Denial license needs to be bought seperately"]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "ACE",
+    unit_hours: 50.0,
+    qty: 0,
+    assumptions: "",
+    details: []
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Atlas",
+    unit_hours: 80.0,
+    qty: 0,
+    assumptions: "",
+    details: []
+  },
+
+  /* Portal group */
+  {
+    type: "parent",
+    code: null,
+    name: "Portal",
+    unit_hours: 0,
+    qty: 0,
+    assumptions: "",
+    details: [],
+    children: [
+      {
+        type: "item",
+        code: null,
+        name: "Carrier Portal (Discuss the usecase with SD before selling)",
+        unit_hours: 80.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Number of Carriers",
+        unit_hours: 1.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Supplier Portal (Prefer to go with Cloud)",
+        unit_hours: 80.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Number of Suppliers",
+        unit_hours: 1.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Customer Portal (Obsolete)",
+        unit_hours: 80.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Number of Customers",
+        unit_hours: 1.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      }
+    ]
+  },
+
+  /* Carriers (ECC/S4) group */
+  {
+    type: "parent",
+    code: null,
+    name: "Carriers (Leave blank if also shipping in EWM)",
+    unit_hours: 0,
+    qty: 0,
+    assumptions: "",
+    details: [],
+    children: [
+      {
+        type: "item",
+        code: null,
+        name: "Online",
+        unit_hours: 40.0,
+        qty: 0,
+        assumptions: "ShipERP will be using published APIs from the carriers. Any special processes will need additional efforts\nEstimate is based on 5 accounts per carrier",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Offline with Rating (upto 5 accessorials)",
+        unit_hours: 30.0,
+        qty: 0,
+        assumptions: "For offline carriers, our standard ShipERP rate tables will be used. Any custom rate tables will need additional efforts.\nFor more accessorials - 4 hrs per accessorial\nFor offline carriers, we will use Standard ShipERP labels, BOL documents\nTracking will be through track url if url is available",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Offline /  Generic (None rating)",
+        unit_hours: 10.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Contract Specific (WE (offline), TD, Etc) , 3PL with many sub carriers",
+        unit_hours: 80.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "New Carrier Development / Setup",
+        unit_hours: 64.0,
+        qty: 0,
+        assumptions: "Around 3 months of development time if carriers not integrated with ShipERP",
+        details: []
+      }
+    ]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Location (First one included w/Core)",
+    unit_hours: 40.0,
+    qty: 0,
+    assumptions: "Copy of the 1st location without any process variations and with the same carriers.\nWe will just do the config and E2E testing. All other testing like SIT, UAT, Trainings, Go-Live, Hypercare will be taken care of by the client IT SME / Business SME.",
+    details: []
+  },
+  {
+    type: "item",
+    code: null,
+    name: "International Shipping",
+    unit_hours: 20.0,
+    qty: 0,
+    assumptions: "ShipERP standard forms and mapping change require RICEF approvals \nAny post/pre upload documentation wll need seperate estimates",
+    details: ["ETD\nOutputs (CI, COO, USMCA/CUSMA)"]
+  },
+
+  /* Fiori group */
+  {
+    type: "parent",
+    code: null,
+    name: "Fiori",
+    unit_hours: 0,
+    qty: 0,
+    assumptions: "",
+    details: [],
+    children: [
+      {
+        type: "item",
+        code: null,
+        name: "Tcode as a Tile",
+        unit_hours: 8.0,
+        qty: 0,
+        assumptions: "Tcode as tile will be created by Client IT team",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Native (Discuss with SD/R&D before selling)",
+        unit_hours: 0.0,
+        qty: 0,
+        assumptions: "TO BE REVIEWED BY SD - MORE DISCUSSION REQUIRED BEFORE TO COME WITH A BASELINE OF HOURS",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Cloud (Should be separate excel)",
+        unit_hours: 0.0,
+        qty: 0,
+        assumptions: "",
+        details: ["*** Printing limitations***"]
+      }
+    ]
+  },
+{
+  type: "item",
+  code: null,
+  name: "Translation (Per Language)",
+  unit_hours: 80.0,
+  qty: 0,
+  assumptions: "",
+  details: ["Screen level and Limited support on Offline forms \nAvailable German , Spanish , Chinese , French , Japanese , Dutch , Russian but these also need to be validated by client before  \nTranslation need to be provided by client based on document shared by ShipeERP."]
+}
+];
+
+const EWM = [
+  {
+    type: "item",
+    code: null,
+    name: "Core (ECC / S4 Included)",
+    unit_hours: 300.0,
+    qty: 0,
+    assumptions: "Previously: 160",
+    details: ["Create/Cancel Shipment and Manifest\nTracking/POD\nRate Quotes\n*** Does Not include cartonization***"]
+  },
+  /* Carriers (EWM) group */
+  {
+    type: "parent",
+    code: null,
+    name: "Carriers (ECC / S4 Setup Included)",
+    unit_hours: 0,
+    qty: 0,
+    assumptions: "",
+    details: [],
+    children: [
+      {
+        type: "item",
+        code: null,
+        name: "Online",
+        unit_hours: 40.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Offline/Rating",
+        unit_hours: 30.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Offline Generic (None rating)",
+        unit_hours: 15.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "Contract Specific (WE (offline), TD, Etc),3PL with many sub carriers",
+        unit_hours: 64.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      },
+      {
+        type: "item",
+        code: null,
+        name: "New Carrier Development / Setup",
+        unit_hours: 64.0,
+        qty: 0,
+        assumptions: "",
+        details: []
+      }
+    ]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Address Validation",
+    unit_hours: 24.0,
+    qty: 0,
+    assumptions: "\"ShipERP is dependent on external APIs (e.g., FedEx, UPS). Any API limitations, restrictions, or access dependencies should be taken into consideration during the project.\n\nwith Sales order module + 16 hours\nEDI involved : more digging required for estimation\n\nAny potential conflicts with Taxware address validation must be identified and reviewed during the project implementation phase.\"",
+    details: []
+  },
+  {
+    type: "item",
+    code: null,
+    name: "TUV",
+    unit_hours: 40.0,
+    qty: 0,
+    assumptions: "",
+    details: ["Outputs (BOL, Pallet Labels)"]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Hazmat",
+    unit_hours: 80.0,
+    qty: 0,
+    assumptions: "",
+    details: ["Number of Regulations (IATA and CFR) - Small Parcel \nOutput forms ( DGD- IATA , PSN , CMR , OP950 , FedEx/UPS forms ( 6 part and 8 part forms) \nDefault Support ( DHL , UPS , FedEx). \nOffline Hazmat shipping label. \nSegregation check in ShipERPn only; **Not linked with shipset or split logic**\nEOD Per carrier / Shipping point Manifest"]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Location (First one included w/Core)",
+    unit_hours: 40.0,
+    qty: 0,
+    assumptions: "Copy of the 1st location without any variations",
+    details: []
+  },
+  {
+    type: "item",
+    code: null,
+    name: "International Shipping",
+    unit_hours: 20.0,
+    qty: 0,
+    assumptions: "",
+    details: ["ETD\nOutputs (CI, COO, USMCA/CUSMA)"]
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Number of additional carriers for HAZMAT",
+    unit_hours: 15.0,
+    qty: 0,
+    assumptions: "",
+    details: []
+  },
+  {
+    type: "item",
+    code: null,
+    name: "Translation (Per Language)",
+    unit_hours: 80.0,
+    qty: 0,
+    assumptions: "",
+    details: ["Screen level and Limited support on Offline forms \nAvailable German , Spanish , Chinese , French , Japanese , Dutch , Russian but these also need to be validated by client before implementation \nTranslation need to be provided by client based on document shared by ShipeERP."]
+  }
+];
+
+
+
+const list = document.getElementById('list');
+let filterQ = '';
+
+function rowHeader() {
+  const hdr = document.createElement('div'); hdr.className='grid-head';
+  hdr.innerHTML = '<div>Code & Module</div><div class="right">Unit hours (B)</div><div class="right">Qty (C)</div><div class="right">Line hours (D)</div><div>Assumptions (F)</div><div class="right">Line cost (E)</div>';
+  return hdr;
+}
+
+function addDetails(container, details) {
+  if (!details || !details.length) return;
+  const det = document.createElement('div'); det.className='detail'; det.textContent = details.join('\n');
+  container.appendChild(det);
+}
+
+function renderChildren(parent, mount) {
+  const wrap = document.createElement('div'); wrap.className='children'; mount.appendChild(wrap);
+  wrap.appendChild(rowHeader());
+
+  (parent.children || []).forEach(child => {
+    if (filterQ && !(String(child.code||'').toLowerCase().includes(filterQ) || child.name.toLowerCase().includes(filterQ))) return;
+    const row = document.createElement('div'); row.className='row child';
+    const name = document.createElement('div'); name.className='name'; name.textContent = (child.code? child.code+' ' : '') + (child.name||'');
+    const unitH = document.createElement('div'); unitH.className='right'; unitH.textContent = (child.unit_hours || 0);
+    const qty = document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1'; qty.value = isFinite(child.qty) ? child.qty : 0; qty.addEventListener('input', recalc);
+    const lineH = document.createElement('div'); lineH.className='right hl';
+    const assumptions = document.createElement('input'); assumptions.type='text'; assumptions.value = child.assumptions || '';
+    const lineCost = document.createElement('div'); lineCost.className='right';
+
+    row.appendChild(name); row.appendChild(unitH); row.appendChild(qty); row.appendChild(lineH); row.appendChild(assumptions); row.appendChild(lineCost);
+    wrap.appendChild(row);
+    addDetails(wrap, child.details);
+    child._qtyEl = qty; child._lineHEl = lineH; child._lineCostEl = lineCost;
+  });
+  return wrap;
+}
+
+function renderSection(title, nodes) {
+  const cat = document.createElement('div'); cat.className='category';
+  const head = document.createElement('div'); head.className='cat-head';
+  const t = document.createElement('div'); t.className='cat-title'; t.textContent = title;
+  const toggle = document.createElement('button'); toggle.textContent='Collapse'; toggle.dataset.state='open';
+  head.appendChild(t); head.appendChild(toggle);
+  cat.appendChild(head);
+  const body = document.createElement('div'); cat.appendChild(body); list.appendChild(cat);
+
+  const freeItems = nodes.filter(n => n.type === 'item');
+  if (freeItems.length) { body.appendChild(rowHeader()); }
+  freeItems.forEach(it => {
+    if (filterQ && !(String(it.code||'').toLowerCase().includes(filterQ) || it.name.toLowerCase().includes(filterQ))) return;
+    const row = document.createElement('div'); row.className='row';
+    const name = document.createElement('div'); name.className='name'; name.textContent = (it.code? it.code+' ' : '') + (it.name||'');
+    const unitH = document.createElement('div'); unitH.className='right'; unitH.textContent = (it.unit_hours || 0);
+    const qty = document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1'; qty.value = isFinite(it.qty) ? it.qty : 0; qty.addEventListener('input', recalc);
+    const lineH = document.createElement('div'); lineH.className='right hl';
+    const assumptions = document.createElement('input'); assumptions.type='text'; assumptions.value = it.assumptions || '';
+    const lineCost = document.createElement('div'); lineCost.className='right';
+    row.appendChild(name); row.appendChild(unitH); row.appendChild(qty); row.appendChild(lineH); row.appendChild(assumptions); row.appendChild(lineCost);
+    body.appendChild(row);
+    addDetails(body, it.details);
+    it._qtyEl = qty; it._lineHEl = lineH; it._lineCostEl = lineCost;
+  });
+
+  nodes.filter(n => n.type === 'parent').forEach(p => {
+    if (filterQ && !(String(p.code||'').toLowerCase().includes(filterQ) || p.name.toLowerCase().includes(filterQ))) return;
+    const prow = document.createElement('div'); prow.className='parent';
+    const pname = document.createElement('div'); pname.className='pname'; pname.innerHTML = (p.code? '<span class="pcode">'+p.code+'</span>' : '') + (p.name||'');
+    const pbtn = document.createElement('button'); pbtn.textContent='Collapse'; pbtn.dataset.state='open';
+    prow.appendChild(pname); prow.appendChild(pbtn);
+    body.appendChild(prow);
+
+    const childrenWrap = renderChildren(p, body);
+    addDetails(body, p.details);
+
+    pbtn.addEventListener('click', () => {
+      const open = pbtn.dataset.state === 'open';
+      childrenWrap.style.display = open ? 'none' : '';
+      pbtn.textContent = open ? 'Expand' : 'Collapse';
+      pbtn.dataset.state = open ? 'closed' : 'open';
+    });
+  });
+
+  toggle.addEventListener('click', () => {
+    const open = toggle.dataset.state === 'open';
+    body.style.display = open ? 'none' : '';
+    toggle.textContent = open ? 'Expand' : 'Collapse';
+    toggle.dataset.state = open ? 'closed' : 'open';
+  });
+}
+
+function render() {
+  list.innerHTML='';
+  renderSection('ShipERP ECC/S4', ECC);
+  renderSection('ShipERP EWM', EWM);
+  recalc();
+}
+
+function recalc() {
+  const r = rate();
+  let eccHours = 0, ewmHours = 0;
+  function sumNodes(nodes) {
+    let sum = 0;
+    nodes.forEach(n => {
+      if (n.type === 'item') {
+        const qty = Number(n._qtyEl?.value || 0);
+        const lh = (n.unit_hours || 0) * qty;
+        if (n._lineHEl) n._lineHEl.textContent = lh;
+        if (n._lineCostEl) n._lineCostEl.textContent = fmtUSD(lh * r);
+        sum += lh;
+      } else if (n.type === 'parent') {
+        (n.children || []).forEach(ch => {
+          const qty = Number(ch._qtyEl?.value || 0);
+          const lh = (ch.unit_hours || 0) * qty;
+          if (ch._lineHEl) ch._lineHEl.textContent = lh;
+          if (ch._lineCostEl) ch._lineCostEl.textContent = fmtUSD(lh * r);
+          sum += lh;
+        });
+      }
+    });
+    return sum;
+  }
+  const D82 = eccHours = sumNodes(ECC);
+  const D83 = ewmHours = sumNodes(EWM);
+  const rH = rate();
+  const E82 = D82 * rH; const E83 = D83 * rH;
+  const otherHrs = Number(document.getElementById('C85').value || 0);
+  const D84 = otherHrs; const E84 = D84 * rH;
+  const D85 = 40; const E85 = D85 * rH;
+  const D86 = D82 + D83 + D84 + D85; const E86 = D86 * rH;
+  const PMpct = 0.2; document.getElementById('PMpctLbl').textContent = Math.round(PMpct*100) + '%';
+  const D87 = D86 * PMpct; const E87 = D87 * rH;
+  const C88 = Number(document.getElementById('C88').value || 0) / 100.0;
+  const C89 = Number(document.getElementById('C89').value || 0);
+  const E88 = E87 * C88;
+  const E89 = C89;
+  const E90 = E87 - (E88 + E89);
+  document.getElementById('D82').textContent = D82;
+  document.getElementById('E82').textContent = fmtUSD(E82);
+  document.getElementById('D83').textContent = D83;
+  document.getElementById('E83').textContent = fmtUSD(E83);
+  document.getElementById('E84').textContent = fmtUSD(E84);
+  document.getElementById('D85').textContent = D85;
+  document.getElementById('E85').textContent = fmtUSD(E85);
+  document.getElementById('D86').textContent = D86;
+  document.getElementById('E86').textContent = fmtUSD(E86);
+  document.getElementById('D87').textContent = Math.round(D87);
+  document.getElementById('E87').textContent = fmtUSD(E87);
+  document.getElementById('E88').textContent = fmtUSD(E88);
+  document.getElementById('E89').textContent = fmtUSD(E89);
+  document.getElementById('E90').textContent = fmtUSD(E90);
+}
+
+/* Build the text extract to send in the email */
+function buildQuoteExtract() {
+  const lines = [];
+  const salesRep = document.getElementById('salesRep').value || 'N/A';
+  const rateStd = document.getElementById('rateStd').value || '';
+  const rateCtr = document.getElementById('rateCtr').value || '';
+
+  lines.push('ShipERP Effort & Cost Estimator - Quote');
+  lines.push('Generated: ' + new Date().toLocaleString());
+  lines.push('');
+  lines.push('Sales Rep: ' + salesRep);
+  lines.push('');
+  lines.push('Rates:');
+  lines.push('  Standard Rate: ' + rateStd);
+  lines.push('  Contract Rate: ' + (rateCtr || 'Using standard rate'));
+  lines.push('');
+
+  function appendNodes(title, nodes) {
+    lines.push('=== ' + title + ' ===');
+    nodes.forEach(n => {
+      if (n.type === 'item') {
+        const qty = Number(n._qtyEl?.value || 0);
+        if (qty > 0) {
+          const lh = (n.unit_hours || 0) * qty;
+          lines.push('- ' + (n.code ? n.code + ' ' : '') + n.name +
+            ' | Qty: ' + qty +
+            ' | Unit hours: ' + (n.unit_hours || 0) +
+            ' | Line hours: ' + lh);
+        }
+      } else if (n.type === 'parent') {
+        (n.children || []).forEach(ch => {
+          const qty = Number(ch._qtyEl?.value || 0);
+          if (qty > 0) {
+            const lh = (ch.unit_hours || 0) * qty;
+            lines.push('- ' + (ch.code ? ch.code + ' ' : '') + ch.name +
+              ' | Qty: ' + qty +
+              ' | Unit hours: ' + (ch.unit_hours || 0) +
+              ' | Line hours: ' + lh);
+          }
+        });
+      }
+    });
+    lines.push('');
+  }
+
+  appendNodes('ShipERP ECC/S4', ECC);
+  appendNodes('ShipERP EWM', EWM);
+
+  const txt = (id) => document.getElementById(id).textContent;
+  const otherFunc = document.getElementById('C85').value || '0';
+  const discPct = document.getElementById('C88').value || '0';
+  const discAmt = document.getElementById('C89').value || '0';
+
+  lines.push('Totals:');
+  lines.push('  ECC / S/4 Total hours: ' + txt('D82') + ' | Amount: ' + txt('E82'));
+  lines.push('  EWM Total hours: ' + txt('D83') + ' | Amount: ' + txt('E83'));
+  lines.push('  Other Functionality Sold hours: ' + otherFunc + ' | Amount: ' + txt('E84'));
+  lines.push('  Blueprint Total hours: ' + txt('D85') + ' | Amount: ' + txt('E85'));
+  lines.push('  Grand Total hours: ' + txt('D86') + ' | Amount: ' + txt('E86'));
+  lines.push('  Project Management Total hours: ' + txt('D87') + ' | Amount: ' + txt('E87'));
+  lines.push('  Discount %: ' + discPct + '% | Discount $: ' + discAmt);
+  lines.push('  Total After Discount: ' + txt('E90'));
+
+  return lines.join('\n');
+}
+
+/* Handle Save the quote click: open pre-filled email */
+function setupSaveQuote() {
+  const btn = document.getElementById('saveQuote');
+  const statusEl = document.getElementById('saveQuoteStatus');
+  btn.addEventListener('click', () => {
+    const salesRepSelect = document.getElementById('salesRep');
+    if (!salesRepSelect.value) {
+      alert('Please select a Sales Rep before saving the quote.');
+      salesRepSelect.focus();
+      return;
+    }
+
+    const body = encodeURIComponent(buildQuoteExtract());
+    const subject = encodeURIComponent('ShipERP Quote - ' + new Date().toLocaleString());
+    const mailto = 'mailto:antoine.lws@gmail.com?subject=' + subject + '&body=' + body;
+
+    statusEl.textContent = 'Preparing email in your default mail client…';
+    window.location.href = mailto;
+  });
+}
+
+document.getElementById('q').addEventListener('input', (e) => {
+  filterQ = e.target.value.trim().toLowerCase();
+  render();
+});
+document.getElementById('expandAll').addEventListener('click', () => {
+  document.querySelectorAll('.category > div:nth-child(2)').forEach(el => el.style.display = '');
+  document.querySelectorAll('.cat-head button').forEach(b => (b.textContent='Collapse', b.dataset.state='open'));
+});
+document.getElementById('collapseAll').addEventListener('click', () => {
+  document.querySelectorAll('.category > div:nth-child(2)').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.cat-head button').forEach(b => (b.textContent='Expand', b.dataset.state='closed'));
+});
+document.getElementById('rateStd').addEventListener('input', recalc);
+document.getElementById('rateCtr').addEventListener('input', recalc);
+document.getElementById('C85').addEventListener('input', recalc);
+document.getElementById('C88').addEventListener('input', recalc);
+document.getElementById('C89').addEventListener('input', recalc);
+
+render();
+setupSaveQuote();
+</script>
+</body>
+</html>

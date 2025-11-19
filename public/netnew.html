@@ -1085,6 +1085,8 @@ function buildQuoteExtract() {
   const salesRep = document.getElementById('salesRep').value || 'N/A';
   const rateStd = document.getElementById('rateStd').value || '';
   const rateCtr = document.getElementById('rateCtr').value || '';
+  const customer = document.getElementById("customerName").value || "";
+
 
   lines.push('ShipERP Effort & Cost Estimator - Quote');
   lines.push('Generated: ' + new Date().toLocaleString());
@@ -1202,8 +1204,10 @@ function setupSaveQuote() {
           sales_rep: salesRep,
           generated_at: humanDate,
           quote_link: sharepointUrl,
+          client: customer   // 👈 NOUVEAU !
         }
       });
+
       // après upload + email, juste avant l’alerte ou le message de succès :
       saveQuoteLocally();
 

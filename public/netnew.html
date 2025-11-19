@@ -158,6 +158,21 @@
     <div class="quote-actions-status" id="saveQuoteStatus">
       Select a Sales Rep and click “Save the quote” to prepare an email.
     </div>
+
+     <!-- 🔽 NOUVEAU : liste de quotes sauvegardées -->
+  <div class="row2">
+    <div class="lbl">Saved quotes</div>
+    <div class="hrs">
+      <select id="savedQuotes">
+        <option value="">-- Select saved quote --</option>
+      </select>
+    </div>
+    <div class="usd">
+      <button id="loadQuoteBtn" type="button">Load</button>
+    </div>
+  </div>
+
+  <p id="saveStatus" class="sub" style="margin-top:8px;font-size:12px;opacity:.8;"></p>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1009,6 +1024,154 @@ function setupSaveQuote() {
     }
   });
 }
+
+  <script>
+/*** Métadonnées (date) + sauvegardes locales ***/
+const STORAGE_PREFIX = "netnew_quote:";
+const STORAGE_INDEX_KEY = "netnew_quote_index";
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function initQuoteMetaAndStorage() {
+  const dateInput = document.getElementById("quoteDate");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = todayISO();
+  }
+  refreshSavedQuotesDropdown();
+}
+
+// Génère un ID unique : CustomerName_YYYY-MM-DD_R4ND
+function generateQuoteId(customer, date) {
+  const slugCustomer = (customer || "NoName")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Za-z0-9_]/g, "")
+    .slice(0, 40);
+  const safeDate = (date || todayISO()).replace(/[^0-9-]/g, "");
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${slugCustomer || "Quote"}_${safeDate}_${rand}`;
+}
+
+// Index des quotes : [{id, label}]
+function loadIndex() {
+  try {
+    const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveIndex(index) {
+  localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(index));
+}
+
+function refreshSavedQuotesDropdown() {
+  const select = document.getElementById("savedQuotes");
+  if (!select) return;
+  const index = loadIndex();
+  select.innerHTML = '<option value="">-- Select saved quote --</option>';
+  index.forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    select.appendChild(opt);
+  });
+}
+
+// Capture tous les champs du formulaire (dans #quote-root)
+function collectFormState() {
+  const container = document.getElementById("quote-root");
+  const fields = container.querySelectorAll("input, select, textarea");
+  const state = {};
+  fields.forEach(el => {
+    const key = el.id || el.name;
+    if (!key) return;
+    if (el.type === "checkbox") {
+      state[key] = el.checked;
+    } else if (el.type === "radio") {
+      if (el.checked) state[key] = el.value;
+    } else {
+      state[key] = el.value;
+    }
+  });
+  return state;
+}
+
+// Restaure les champs
+function applyFormState(state) {
+  const container = document.getElementById("quote-root");
+  Object.entries(state || {}).forEach(([key, value]) => {
+    const el = container.querySelector(`#${CSS.escape(key)}, [name='${CSS.escape(key)}']`);
+    if (!el) return;
+    if (el.type === "checkbox") {
+      el.checked = !!value;
+    } else if (el.type === "radio") {
+      if (el.value === value) el.checked = true;
+    } else {
+      el.value = value;
+    }
+    // On déclenche un événement input/change pour recalculer les totaux si ton code les écoute
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  // Si tu as une fonction globale de recalcul, tu peux l'appeler ici :
+  if (window.recalcAll) window.recalcAll();
+}
+
+// Sauvegarde locale après upload/email
+function saveQuoteLocally() {
+  const customer = document.getElementById("customerName")?.value || "";
+  const date = document.getElementById("quoteDate")?.value || todayISO();
+
+  const id = generateQuoteId(customer, date);
+  const label = `${customer || "NoName"} | ${date}`;
+
+  const state = collectFormState();
+  localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(state));
+
+  const index = loadIndex();
+  index.push({ id, label });
+  saveIndex(index);
+  refreshSavedQuotesDropdown();
+
+  const status = document.getElementById("saveStatus");
+  if (status) {
+    status.textContent = `Quote saved locally as "${label}".`;
+  }
+}
+
+function loadQuoteById(id) {
+  if (!id) return;
+  const raw = localStorage.getItem(STORAGE_PREFIX + id);
+  if (!raw) return;
+  const state = JSON.parse(raw);
+  applyFormState(state);
+
+  const status = document.getElementById("saveStatus");
+  if (status) {
+    status.textContent = `Quote "${id}" loaded from local storage.`;
+  }
+}
+
+// Initialisation au chargement de la page
+window.addEventListener("DOMContentLoaded", () => {
+  initQuoteMetaAndStorage();
+
+  const loadBtn = document.getElementById("loadQuoteBtn");
+  if (loadBtn) {
+    loadBtn.addEventListener("click", () => {
+      const select = document.getElementById("savedQuotes");
+      if (!select || !select.value) return;
+      loadQuoteById(select.value);
+    });
+  }
+});
+</script>
+
 
 
 document.getElementById('q').addEventListener('input', (e) => {

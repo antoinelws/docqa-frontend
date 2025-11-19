@@ -4,99 +4,682 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SOW Internal Estimator</title>
-  <link rel="stylesheet" href="style.css" />
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
     .container {
-      max-width: 600px;
+      max-width: 960px;
       margin: 0 auto;
-      padding-top: 40px;
-      text-align: left;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
     }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h2 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .form-content {
+      padding: 2.5rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+
     label {
-      display: block;
-      margin-top: 10px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
     }
-    input, select {
+
+    .question-number {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-size: 0.85rem;
+      margin-right: 0.5rem;
+      font-weight: 600;
+    }
+
+    select, input[type="text"], input[type="number"] {
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      background-color: white;
+      font-family: inherit;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .number-input-wrapper {
+      display: flex;
+      align-items: stretch;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      background: white;
+    }
+
+    .number-input-wrapper:focus-within {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .number-input-wrapper input {
+      border: none;
+      flex: 1;
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+      font-weight: 600;
+      min-width: 0;
+    }
+
+    .number-input-wrapper input:focus {
+      box-shadow: none;
+      border: none;
+    }
+
+    .number-btn {
+      background: #f8f9fa;
+      border: none;
+      width: 44px;
+      cursor: pointer;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #667eea;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .number-btn:hover {
+      background: #667eea;
+      color: white;
+    }
+
+    .number-btn:active {
+      background: #5568d3;
+      transform: scale(0.95);
+    }
+
+    .number-btn.decrement {
+      border-right: 1px solid #e0e0e0;
+    }
+
+    .number-btn.increment {
+      border-left: 1px solid #e0e0e0;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.25rem;
+      font-style: italic;
+    }
+
+    .btn.primary {
       width: 100%;
-      padding: 8px;
-      margin-top: 5px;
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1rem;
     }
-    button {
-      margin-top: 20px;
+
+    .btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
+
+    .btn.primary:active {
+      transform: translateY(0);
+    }
+
+    .icon {
+      display: inline-block;
+      margin-right: 0.5rem;
+    }
+
+    #result {
+      margin-top: 2rem;
+    }
+
+    .result-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .result-section h3 {
+      color: #333;
+      margin-bottom: 1rem;
+      font-size: 1.4rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .result-section h4 {
+      color: #555;
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    .ratio-box {
+      background: white;
+      border-radius: 8px;
+      padding: 1.25rem;
+      border-left: 4px solid #667eea;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .ratio-box ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .ratio-box li {
+      padding: 0.5rem 0;
+      color: #666;
+      font-size: 0.95rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .ratio-box li:last-child {
+      border-bottom: none;
+    }
+
+    .ratio-box li strong {
+      color: #333;
+      display: inline-block;
+      min-width: 150px;
+    }
+
     table {
-      margin-top: 30px;
       width: 100%;
       border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    table, th, td {
-      border: 1px solid #ccc;
+
+    th {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.95rem;
     }
-    th, td {
-      padding: 10px;
-      text-align: center;
+
+    td {
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid #e0e0e0;
+      color: #555;
+      font-size: 0.95rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+
+    tr.total-row {
+      background: #e8eaf6 !important;
+      font-weight: 700;
+      color: #333;
+    }
+
+    tr.total-row td {
+      border-top: 2px solid #667eea;
+      padding-top: 1rem;
+      font-size: 1.05rem;
+    }
+
+    .error-message {
+      background: #ffebee;
+      border-left: 4px solid #e74c3c;
+      padding: 1rem 1.25rem;
+      border-radius: 6px;
+      color: #c62828;
+      margin-bottom: 1.5rem;
+      font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .header h2 {
+        font-size: 1.5rem;
+      }
+
+      .form-content {
+        padding: 1.5rem;
+      }
+
+      table {
+        font-size: 0.85rem;
+      }
+
+      th, td {
+        padding: 0.75rem 0.5rem;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>SOW Internal Estimator</h1>
+    <div class="header">
+      <h2>📋 SOW Internal Estimator</h2>
+      <p>Calculate effort estimates for your ShipERP implementation project</p>
+    </div>
 
-    <label>Customer Name:
-      <input type="text" id="customer" />
-    </label>
+    <div class="form-content">
+      <form id="sowForm" onsubmit="return false;">
+        <div class="form-row">
+          <div class="form-group full-width">
+            <label>
+              <span class="question-number">1</span>
+              Customer Name
+            </label>
+            <input type="text" id="customer" placeholder="Enter customer name" />
+          </div>
+        </div>
 
-    <label>ShipERP Version ECC:
-      <select id="ecc_version">
-        <option value="2.3">2.3</option>
-        <option value="2.5">2.5</option>
-        <option value="3.4">3.4</option>
-        <option value="4.1">4.1</option>
-        <option value="4.5">4.5</option>
-        <option value="5.0">5.0</option>
-      </select>
-    </label>
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">2</span>
+              ShipERP Version ECC
+            </label>
+            <select id="ecc_version">
+              <option value="2.3">2.3</option>
+              <option value="2.5">2.5</option>
+              <option value="3.4">3.4</option>
+              <option value="4.1">4.1</option>
+              <option value="4.5" selected>4.5</option>
+              <option value="5.0">5.0</option>
+            </select>
+          </div>
 
-    <label>ShipERP Version EWM:
-      <select id="ewm_version">
-        <option value="2.0">&lt; 2.1</option>
-        <option value="2.2">&gt; 2.1</option>
-      </select>
-    </label>
+          <div class="form-group">
+            <label>
+              <span class="question-number">3</span>
+              ShipERP Version EWM
+            </label>
+            <select id="ewm_version">
+              <option value="2.0">&lt; 2.1</option>
+              <option value="2.2" selected>&gt; 2.1</option>
+            </select>
+          </div>
+        </div>
 
-    <label>Number of enhancements:
-      <input type="number" id="enhancements" />
-    </label>
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">4</span>
+              Number of Enhancements
+            </label>
+            <div class="number-input-wrapper">
+              <button type="button" class="number-btn decrement" onclick="decrementValue('enhancements')">−</button>
+              <input type="number" id="enhancements" placeholder="0" min="0" value="0" />
+              <button type="button" class="number-btn increment" onclick="incrementValue('enhancements')">+</button>
+            </div>
+          </div>
 
-    <label>Test cases:
-      <select id="test_cases">
-        <option value="Yes">Yes</option>
-        <option value="No">No</option>
-      </select>
-    </label>
+          <div class="form-group">
+            <label>
+              <span class="question-number">5</span>
+              Test Cases
+            </label>
+            <select id="test_cases">
+              <option value="Yes" selected>Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+        </div>
 
-    <label>Customer Rating:
-      <select id="rating">
-        <option value="Good">Good</option>
-        <option value="Average">Average</option>
-        <option value="Bad">Bad</option>
-      </select>
-    </label>
+        <div class="form-row">
+          <div class="form-group full-width">
+            <label>
+              <span class="question-number">6</span>
+              Customer Rating
+            </label>
+            <select id="rating">
+              <option value="Good" selected>Good</option>
+              <option value="Average">Average</option>
+              <option value="Bad">Bad</option>
+            </select>
+          </div>
+        </div>
 
-    <label>Development Corrections&Patch Application:
-      <input type="number" id="corrections" />
-    </label>
+        <div class="form-row">
+          <div class="form-group">
+            <label>
+              <span class="question-number">7</span>
+              Development Corrections & Patch Application (hours)
+            </label>
+            <div class="number-input-wrapper">
+              <button type="button" class="number-btn decrement" onclick="decrementValue('corrections', 0.5)">−</button>
+              <input type="number" id="corrections" placeholder="0" step="0.5" min="0" value="0" />
+              <button type="button" class="number-btn increment" onclick="incrementValue('corrections', 0.5)">+</button>
+            </div>
+          </div>
 
-    <label>Configuration:
-      <input type="number" id="configuration" />
-    </label>
+          <div class="form-group">
+            <label>
+              <span class="question-number">8</span>
+              Configuration (hours)
+            </label>
+            <div class="number-input-wrapper">
+              <button type="button" class="number-btn decrement" onclick="decrementValue('configuration', 0.5)">−</button>
+              <input type="number" id="configuration" placeholder="0" step="0.5" min="0" value="0" />
+              <button type="button" class="number-btn increment" onclick="incrementValue('configuration', 0.5)">+</button>
+            </div>
+          </div>
+        </div>
 
-    <button onclick="calculate()">Calculate</button>
+        <button class="btn primary" onclick="calculate()">
+          <span class="icon">📊</span>
+          <span>Calculate Estimate</span>
+        </button>
 
-    <div id="result"></div>
+        <div id="result"></div>
+      </form>
+    </div>
   </div>
-  <script src="config.js"></script>
-  <script src="estimation_rules.js"></script>
-  <script src="script_sow.js"></script>
+
+  <script>
+// Configuration Constants
+const CONFIG = {
+  NORM_FROM: 4.5,
+  NORM_TO: 3,
+  UNIT_TEST_FACTOR: 0.3,
+  SIT_UAT_FACTOR: 0.4,
+  GOLIVE_FACTOR: 0.4,
+  PM_FACTOR: 0.2
+};
+
+// Number input increment/decrement functions
+function incrementValue(fieldId, step = 1) {
+  const input = document.getElementById(fieldId);
+  const currentValue = parseFloat(input.value) || 0;
+  const minValue = parseFloat(input.min) || 0;
+  input.value = Math.max(minValue, currentValue + step);
+}
+
+function decrementValue(fieldId, step = 1) {
+  const input = document.getElementById(fieldId);
+  const currentValue = parseFloat(input.value) || 0;
+  const minValue = parseFloat(input.min) || 0;
+  input.value = Math.max(minValue, currentValue - step);
+}
+
+// Ratio Mapping Tables
+const RATIO_MAPS = {
+  enhancements: [
+    { max: 15, label: "Low", ratio: 1.0 },
+    { max: 40, label: "Medium", ratio: 1.2 },
+    { max: 100, label: "High", ratio: 1.3 },
+    { max: 130, label: "Very High", ratio: 1.5 },
+    { max: Infinity, label: "Extremely High", ratio: 2.0 }
+  ],
+  ecc: [
+    { max: 4.1, label: "Average", ratio: 1.5 },
+    { max: Infinity, label: "Good", ratio: 1.0 }
+  ],
+  ewm: [
+    { max: 2.1, label: "Average", ratio: 1.5 },
+    { max: Infinity, label: "Good", ratio: 1.0 }
+  ],
+  testCases: {
+    "Yes": { label: "Yes", ratio: 1.0 },
+    "No": { label: "No", ratio: 1.5 }
+  },
+  customerRating: {
+    "Bad": { label: "Bad", ratio: 1.5 },
+    "Average": { label: "Average", ratio: 1.0 },
+    "Good": { label: "Good", ratio: 1.0 }
+  }
+};
+
+function getRatioFromRange(value, mapArray) {
+  for (const entry of mapArray) {
+    if (value <= entry.max) {
+      return { label: entry.label, ratio: entry.ratio };
+    }
+  }
+  return { label: "Unknown", ratio: 1.0 };
+}
+
+function calculateEstimate(inputs) {
+  const {
+    shipERP_version_ecc,
+    shipERP_version_ewm,
+    num_enhancements,
+    test_cases,
+    customer_rating,
+    dev_corrections_patch_application,
+    configuration
+  } = inputs;
+
+  const enhancementData = getRatioFromRange(num_enhancements, RATIO_MAPS.enhancements);
+  const eccData = getRatioFromRange(shipERP_version_ecc, RATIO_MAPS.ecc);
+  const ewmData = getRatioFromRange(shipERP_version_ewm, RATIO_MAPS.ewm);
+  const testCaseData = RATIO_MAPS.testCases[test_cases] || { label: "Yes", ratio: 1.0 };
+  const ratingData = RATIO_MAPS.customerRating[customer_rating] || { label: "Average", ratio: 1.0 };
+
+  // Calculate Total Ratio (sum of all ratios)
+  const totalRatio = enhancementData.ratio + eccData.ratio + ewmData.ratio + 
+                     testCaseData.ratio + ratingData.ratio;
+
+  const tasks = {};
+
+  // 1. Development Corrections & Patch Application
+  const devCorrFrom = Math.round(dev_corrections_patch_application * (totalRatio / CONFIG.NORM_FROM));
+  const devCorrTo = Math.round(dev_corrections_patch_application * (totalRatio / CONFIG.NORM_TO));
+  tasks["Development Corrections & Patch Application"] = [devCorrFrom, devCorrTo];
+
+  // 2. Configuration
+  const configFrom = Math.round(configuration * (totalRatio / CONFIG.NORM_FROM));
+  const configTo = Math.round(configuration * (totalRatio / CONFIG.NORM_TO));
+  tasks["Configuration"] = [configFrom, configTo];
+
+  // 3. Unit Test
+  const unitTestFrom = Math.round(configuration * CONFIG.UNIT_TEST_FACTOR * (totalRatio / CONFIG.NORM_FROM));
+  const unitTestTo = Math.round(configuration * CONFIG.UNIT_TEST_FACTOR * (totalRatio / CONFIG.NORM_TO));
+  tasks["Unit Test"] = [unitTestFrom, unitTestTo];
+
+  // 4. SIT & UAT Support
+  const sitUatFrom = Math.round((configuration + dev_corrections_patch_application) * CONFIG.SIT_UAT_FACTOR * (totalRatio / CONFIG.NORM_FROM));
+  const sitUatTo = Math.round((configuration + dev_corrections_patch_application) * CONFIG.SIT_UAT_FACTOR * (totalRatio / CONFIG.NORM_TO));
+  tasks["SIT & UAT Support"] = [sitUatFrom, sitUatTo];
+
+  // 5. Go Live & HyperCare
+  const goLiveFrom = Math.round((configuration + dev_corrections_patch_application) * CONFIG.GOLIVE_FACTOR * (totalRatio / CONFIG.NORM_FROM));
+  const goLiveTo = Math.round((configuration + dev_corrections_patch_application) * CONFIG.GOLIVE_FACTOR * (totalRatio / CONFIG.NORM_TO));
+  tasks["Go Live & HyperCare"] = [goLiveFrom, goLiveTo];
+
+  // Calculate subtotals (sum of tasks 1-5)
+  let subtotalFrom = 0;
+  let subtotalTo = 0;
+  for (const [, values] of Object.entries(tasks)) {
+    subtotalFrom += values[0];
+    subtotalTo += values[1];
+  }
+
+  // 6. PM Hours (20% of subtotal)
+  const pmFrom = Math.round(subtotalFrom * CONFIG.PM_FACTOR);
+  const pmTo = Math.round(subtotalTo * CONFIG.PM_FACTOR);
+  tasks["Project Management"] = [pmFrom, pmTo];
+
+  // 7. Grand Totals
+  const totalFrom = subtotalFrom + pmFrom;
+  const totalTo = subtotalTo + pmTo;
+
+  return {
+    tasks,
+    totalFrom,
+    totalTo,
+    ratioBreakdown: {
+      enhancements: enhancementData,
+      ecc: eccData,
+      ewm: ewmData,
+      testCases: testCaseData,
+      customerRating: ratingData,
+      totalRatio: parseFloat(totalRatio.toFixed(2))
+    }
+  };
+}
+
+function calculate() {
+  const ecc = parseFloat(document.getElementById("ecc_version").value);
+  const ewm = parseFloat(document.getElementById("ewm_version").value);
+  const enhancements = parseInt(document.getElementById("enhancements").value);
+  const testCases = document.getElementById("test_cases").value;
+  const rating = document.getElementById("rating").value;
+  const corrections = parseFloat(document.getElementById("corrections").value);
+  const config = parseFloat(document.getElementById("configuration").value);
+
+  if (isNaN(ecc) || isNaN(ewm) || isNaN(enhancements) || isNaN(corrections) || isNaN(config)) {
+    document.getElementById("result").innerHTML = '<div class="error-message">⚠️ Please fill in all numeric fields.</div>';
+    return;
+  }
+
+  const inputs = {
+    shipERP_version_ecc: ecc,
+    shipERP_version_ewm: ewm,
+    num_enhancements: enhancements,
+    test_cases: testCases,
+    customer_rating: rating,
+    dev_corrections_patch_application: corrections,
+    configuration: config
+  };
+
+  const resultEl = document.getElementById("result");
+
+  try {
+    const result = calculateEstimate(inputs);
+
+    let html = `
+      <div class="result-section">
+        <h3>📊 Estimation Results</h3>
+        <div class="ratio-box">
+          <h4>Ratio Breakdown (Total: ${result.ratioBreakdown.totalRatio})</h4>
+          <ul>
+            <li><strong>Enhancements:</strong> ${result.ratioBreakdown.enhancements.label} (${result.ratioBreakdown.enhancements.ratio})</li>
+            <li><strong>ECC Version:</strong> ${result.ratioBreakdown.ecc.label} (${result.ratioBreakdown.ecc.ratio})</li>
+            <li><strong>EWM Version:</strong> ${result.ratioBreakdown.ewm.label} (${result.ratioBreakdown.ewm.ratio})</li>
+            <li><strong>Test Cases:</strong> ${result.ratioBreakdown.testCases.label} (${result.ratioBreakdown.testCases.ratio})</li>
+            <li><strong>Customer Rating:</strong> ${result.ratioBreakdown.customerRating.label} (${result.ratioBreakdown.customerRating.ratio})</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="result-section">
+        <h3>📈 Task Breakdown</h3>
+        <table>
+          <tr>
+            <th>Task</th>
+            <th>From (hrs)</th>
+            <th>To (hrs)</th>
+          </tr>`;
+
+    for (const [task, values] of Object.entries(result.tasks)) {
+      html += `<tr><td>${task}</td><td>${values[0]}</td><td>${values[1]}</td></tr>`;
+    }
+
+    html += `
+          <tr class="total-row">
+            <td>Grand Total</td>
+            <td>${result.totalFrom}</td>
+            <td>${result.totalTo}</td>
+          </tr>
+        </table>
+      </div>`;
+
+    resultEl.innerHTML = html;
+  } catch (error) {
+    console.error("Error:", error);
+    resultEl.innerHTML = '<div class="error-message">⚠️ An error occurred during calculation. Please check your inputs.</div>';
+  }
+}
+  </script>
 </body>
 </html>

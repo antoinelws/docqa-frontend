@@ -98,6 +98,7 @@
   </style>
 </head>
 <body>
+  <div id="quote-root">
   <h1>ShipERP Effort & Cost Estimator</h1>
   <p class="sub">Dark theme V9. Catégories (Freight Audit, Portal, Carriers, Fiori…) → Sous-modules → Détails, avec indentation & lignes guides.</p>
 
@@ -153,6 +154,7 @@
     <div class="field">
       <button id="saveQuote">Save the quote</button>
     </div>
+     </div> 
     <div class="quote-actions-status" id="saveQuoteStatus">
       Select a Sales Rep and click “Save the quote” to prepare an email.
     </div>
@@ -191,14 +193,13 @@ async function sendQuoteViaEmailJS({ subject, messageHtml, extraParams = {} }) {
   if (!res.ok) throw new Error(await res.text());
 }
 
-/************ PDF generator (léger) ************/
+/************ PDF generator (multi-page, mais léger) ************/
 async function generateQuotePdfBase64() {
-  // On ne capture QUE la zone de la quote, pas toute la page
+  // On capture toute la zone de la quote
   const element = document.getElementById("quote-root") || document.body;
 
-  // Résolution réduite (scale: 1) pour limiter la taille
   const canvas = await html2canvas(element, {
-    scale: 1,              // avant on mettait 2 → plus lourd
+    scale: 1,              // résolution raisonnable pour limiter la taille
     scrollX: 0,
     scrollY: -window.scrollY
   });
@@ -211,21 +212,31 @@ async function generateQuotePdfBase64() {
   const pageWidth  = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
-  // On redimensionne l’image pour qu’elle tienne ENTIEREMENT sur une seule page A4
-  const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-  const imgWidth  = canvas.width * ratio;
-  const imgHeight = canvas.height * ratio;
+  // On fixe la largeur de l'image à la largeur de la page
+  const imgWidth  = pageWidth;
+  const imgHeight = canvas.height * imgWidth / canvas.width;
 
-  const x = (pageWidth  - imgWidth)  / 2;
-  const y = (pageHeight - imgHeight) / 2;
+  let heightLeft = imgHeight;
+  let position = 0;
 
-  pdf.addImage(imgData, "JPEG", x, y, imgWidth, imgHeight);
+  // Page 1
+  pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+
+  // Pages suivantes si le contenu dépasse une page A4
+  while (heightLeft > 0) {
+    pdf.addPage();
+    position -= pageHeight; // on remonte l'image pour "voir" la suite
+    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
 
   // data:application/pdf;base64,.... → on ne garde que la partie base64
   const dataUrl = pdf.output("datauristring");
   const base64 = dataUrl.split(",")[1];
   return base64;
 }
+
 
 
 async function sendQuoteViaEmailJS({ subject, replyTo, messageHtml }) {

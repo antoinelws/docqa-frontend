@@ -95,6 +95,19 @@
         grid-template-columns: 1fr;
       }
     }
+    .quote-meta {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.quote-meta label {
+  display: block;
+  font-size: 12px;
+  opacity: .8;
+  margin-bottom: 2px;
+}
+
   </style>
 </head>
 <body>
@@ -265,27 +278,6 @@ async function generateQuotePdfBase64() {
   const dataUrl = pdf.output("datauristring");
   const base64 = dataUrl.split(",")[1];
   return base64;
-}
-
-
-
-async function sendQuoteViaEmailJS({ subject, replyTo, messageHtml }) {
-  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      service_id: QUOTE_EMAILJS.SERVICE_ID,
-      template_id: QUOTE_EMAILJS.TEMPLATE_ID,
-      user_id: QUOTE_EMAILJS.USER_ID,
-      template_params: {
-        subject,
-        to_email: QUOTE_EMAILJS.TO_EMAIL,
-        reply_to: replyTo || "",
-        message_html: messageHtml
-      }
-    })
-  });
-  if (!res.ok) throw new Error(await res.text());
 }
 
 function escapeHtml(str) {

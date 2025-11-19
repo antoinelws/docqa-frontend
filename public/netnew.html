@@ -191,13 +191,19 @@ async function sendQuoteViaEmailJS({ subject, messageHtml, extraParams = {} }) {
   if (!res.ok) throw new Error(await res.text());
 }
 
-/************ PDF generator (returns base64 only) ************/
+/************ PDF generator (léger) ************/
 async function generateQuotePdfBase64() {
-  // You can target a specific container instead of the whole body if you want
-  const element = document.body;
+  // On ne capture QUE la zone de la quote, pas toute la page
+  const element = document.getElementById("quote-root") || document.body;
 
-  const canvas = await html2canvas(element, { scale: 2 });
-  const imgData = canvas.toDataURL("image/jpeg", 0.98);
+  // Résolution réduite (scale: 1) pour limiter la taille
+  const canvas = await html2canvas(element, {
+    scale: 1,              // avant on mettait 2 → plus lourd
+    scrollX: 0,
+    scrollY: -window.scrollY
+  });
+
+  const imgData = canvas.toDataURL("image/jpeg", 0.8); // jpeg compressé
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("p", "pt", "a4");
@@ -205,27 +211,22 @@ async function generateQuotePdfBase64() {
   const pageWidth  = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
-  const imgWidth  = pageWidth;
-  const imgHeight = canvas.height * imgWidth / canvas.width;
+  // On redimensionne l’image pour qu’elle tienne ENTIEREMENT sur une seule page A4
+  const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+  const imgWidth  = canvas.width * ratio;
+  const imgHeight = canvas.height * ratio;
 
-  let heightLeft = imgHeight;
-  let position = 0;
+  const x = (pageWidth  - imgWidth)  / 2;
+  const y = (pageHeight - imgHeight) / 2;
 
-  pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
+  pdf.addImage(imgData, "JPEG", x, y, imgWidth, imgHeight);
 
-  while (heightLeft > 0) {
-    pdf.addPage();
-    position = heightLeft - imgHeight;
-    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-  }
-
-  // data:application/pdf;base64,.... → we only need the raw base64 part
-  const dataUrl = pdf.output("datauristring"); 
-  const base64 = dataUrl.split(",")[1];  // after "data:application/pdf;base64,"
+  // data:application/pdf;base64,.... → on ne garde que la partie base64
+  const dataUrl = pdf.output("datauristring");
+  const base64 = dataUrl.split(",")[1];
   return base64;
 }
+
 
 async function sendQuoteViaEmailJS({ subject, replyTo, messageHtml }) {
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {

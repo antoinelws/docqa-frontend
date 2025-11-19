@@ -1055,14 +1055,38 @@ function recalc() {
   const otherHrs = Number(document.getElementById('C85').value || 0);
   const D84 = otherHrs; const E84 = D84 * rH;
   const D85 = 40; const E85 = D85 * rH;
-  const D86 = D82 + D83 + D84 + D85; const E86 = D86 * rH;
-  const PMpct = 0.2; document.getElementById('PMpctLbl').textContent = Math.round(PMpct*100) + '%';
-  const D87 = D86 * PMpct; const E87 = D87 * rH;
-  const C88 = Number(document.getElementById('C88').value || 0) / 100.0;
-  const C89 = Number(document.getElementById('C89').value || 0);
-  const E88 = E87 * C88;
-  const E89 = C89;
-  const E90 = E87 - (E88 + E89);
+ const D86 = D82 + D83 + D84 + D85;
+const E86 = D86 * rH;
+
+// PM 20 %
+const PMpct = 0.2;
+document.getElementById('PMpctLbl').textContent = Math.round(PMpct * 100) + '%';
+
+// on arrondit les heures PM
+const rawPMHours = D86 * PMpct;
+const D87 = Math.round(rawPMHours);
+const E87 = D87 * rH;
+
+// Remise
+const C88 = Number(document.getElementById('C88').value || 0) / 100.0; // %
+const C89 = Number(document.getElementById('C89').value || 0);        // $
+
+// 👉 Nouveau : total projet = Grand Total + PM
+const grossTotal = E86 + E87;
+
+// remise % appliquée sur tout
+const E88 = grossTotal * C88;
+
+// remise fixe
+const E89 = C89;
+
+// Total After Discount = tout - remises
+const E90 = grossTotal - (E88 + E89);
+  
+// Total hours = Grand Total + PM
+const D90 = D86 + D87;
+document.getElementById('D90').textContent = D90;
+
   document.getElementById('D82').textContent = D82;
   document.getElementById('E82').textContent = fmtUSD(E82);
   document.getElementById('D83').textContent = D83;
@@ -1161,6 +1185,9 @@ function setupSaveQuote() {
     }
 
     const salesRep = salesRepSelect.value;
+      // 👇 NOUVEAU : on récupère le client
+    const customerInput = document.getElementById("customerName");
+    const customer = customerInput ? customerInput.value.trim() : "";
     const now = new Date();
     const humanDate = now.toLocaleString();
     const fileName = `NetNewQuote_${salesRep.replace(/\s+/g, "_")}_${now.getTime()}.pdf`;

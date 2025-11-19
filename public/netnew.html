@@ -32,9 +32,25 @@
     .category { background: var(--panel); border:1px solid var(--border); border-radius:12px; margin-bottom:14px; }
     .cat-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--border); }
     .cat-title { font-weight:800; }
+    .grid-head { 
+      display:grid; 
+      grid-template-columns: 1.6fr 90px 110px 120px 110px 1fr 120px; 
+      gap:10px; 
+      padding:10px 14px; 
+      border-bottom:1px dashed #142241; 
+      color: var(--muted); 
+    }
+    
+    .row { 
+      display:grid; 
+      grid-template-columns: 1.6fr 90px 110px 120px 110px 1fr 120px; 
+      gap:10px; 
+      align-items:start; 
+      padding:10px 14px; 
+      border-bottom:1px dashed #142241; 
+      position:relative; 
+    }
 
-    .grid-head { display:grid; grid-template-columns: 1.6fr 90px 110px 120px 1fr 120px; gap:10px; padding:10px 14px; border-bottom:1px dashed #142241; color: var(--muted); }
-    .row { display:grid; grid-template-columns: 1.6fr 90px 110px 120px 1fr 120px; gap:10px; align-items:start; padding:10px 14px; border-bottom:1px dashed #142241; position:relative; }
     .row:last-child { border-bottom:none; }
     .right { text-align:right; }
     .name { font-weight:600; }
@@ -746,10 +762,20 @@ const list = document.getElementById('list');
 let filterQ = '';
 
 function rowHeader() {
-  const hdr = document.createElement('div'); hdr.className='grid-head';
-  hdr.innerHTML = '<div>Code & Module</div><div class="right">Unit hours (B)</div><div class="right">Qty (C)</div><div class="right">Line hours (D)</div><div>Assumptions (F)</div><div class="right">Line cost (E)</div>';
+  const hdr = document.createElement('div'); 
+  hdr.className='grid-head';
+  hdr.innerHTML = `
+    <div>Code & Module</div>
+    <div class="right">Unit hours (B)</div>
+    <div class="right">Qty (C)</div>
+    <div class="right">Line hours (D)</div>
+    <div>Assumptions</div>
+    <div>Sales remarks</div>
+    <div class="right">Line cost (E)</div>
+  `;
   return hdr;
 }
+
 
 function addDetails(container, details) {
   if (!details || !details.length) return;
@@ -763,16 +789,68 @@ function renderChildren(parent, mount) {
 
   (parent.children || []).forEach(child => {
     if (filterQ && !(String(child.code||'').toLowerCase().includes(filterQ) || child.name.toLowerCase().includes(filterQ))) return;
-    const row = document.createElement('div'); row.className='row child';
-    const name = document.createElement('div'); name.className='name'; name.textContent = (child.code? child.code+' ' : '') + (child.name||'');
-    const unitH = document.createElement('div'); unitH.className='right'; unitH.textContent = (child.unit_hours || 0);
-    const qty = document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1'; qty.value = isFinite(child.qty) ? child.qty : 0; qty.addEventListener('input', recalc);
-    const lineH = document.createElement('div'); lineH.className='right hl';
-    const assumptions = document.createElement('input'); assumptions.type='text'; assumptions.value = child.assumptions || '';
-    const lineCost = document.createElement('div'); lineCost.className='right';
+const row = document.createElement('div'); 
+row.className='row child';
 
-    row.appendChild(name); row.appendChild(unitH); row.appendChild(qty); row.appendChild(lineH); row.appendChild(assumptions); row.appendChild(lineCost);
-    wrap.appendChild(row);
+const name = document.createElement('div'); 
+name.className='name'; 
+name.textContent = (child.code? child.code+' ' : '') + (child.name||'');
+
+const unitH = document.createElement('div'); 
+unitH.className='right'; 
+unitH.textContent = (child.unit_hours || 0);
+
+const qty = document.createElement('input'); 
+qty.type='number'; 
+qty.min='0'; 
+qty.step='1'; 
+qty.value = isFinite(child.qty) ? child.qty : 0; 
+qty.addEventListener('input', recalc);
+
+const lineH = document.createElement('div'); 
+lineH.className='right hl';
+
+// 👉 Assumptions = bouton "View"
+const assumptionsCell = document.createElement('div');
+if (child.assumptions && child.assumptions.trim() !== "") {
+  const btnAss = document.createElement('button');
+  btnAss.type = 'button';
+  btnAss.textContent = 'View';
+  btnAss.style.fontSize = '12px';
+  btnAss.addEventListener('click', () => {
+    alert(child.assumptions);
+  });
+  assumptionsCell.appendChild(btnAss);
+} else {
+  assumptionsCell.textContent = '—';
+}
+
+// 👉 Nouvelle colonne "Sales remarks" = input libre
+const salesRemarks = document.createElement('input');
+salesRemarks.type = 'text';
+salesRemarks.placeholder = 'Sales remarks…';
+
+// Colonne coût
+const lineCost = document.createElement('div'); 
+lineCost.className='right';
+
+row.appendChild(name); 
+row.appendChild(unitH); 
+row.appendChild(qty); 
+row.appendChild(lineH); 
+row.appendChild(assumptionsCell); 
+row.appendChild(salesRemarks); 
+row.appendChild(lineCost);
+
+wrap.appendChild(row);
+addDetails(wrap, child.details);
+
+// On garde ces pointeurs pour recalc()
+child._qtyEl = qty; 
+child._lineHEl = lineH; 
+child._lineCostEl = lineCost;
+// (salesRemarks n’a pas besoin d’être dans recalc, c’est juste du texte libre)
+
     addDetails(wrap, child.details);
     child._qtyEl = qty; child._lineHEl = lineH; child._lineCostEl = lineCost;
   });
@@ -780,37 +858,130 @@ function renderChildren(parent, mount) {
 }
 
 function renderSection(title, nodes) {
-  const cat = document.createElement('div'); cat.className='category';
-  const head = document.createElement('div'); head.className='cat-head';
-  const t = document.createElement('div'); t.className='cat-title'; t.textContent = title;
-  const toggle = document.createElement('button'); toggle.textContent='Collapse'; toggle.dataset.state='open';
-  head.appendChild(t); head.appendChild(toggle);
-  cat.appendChild(head);
-  const body = document.createElement('div'); cat.appendChild(body); list.appendChild(cat);
+  const cat = document.createElement('div'); 
+  cat.className = 'category';
 
+  const head = document.createElement('div'); 
+  head.className = 'cat-head';
+
+  const t = document.createElement('div'); 
+  t.className = 'cat-title'; 
+  t.textContent = title;
+
+  const toggle = document.createElement('button'); 
+  toggle.textContent = 'Collapse'; 
+  toggle.dataset.state = 'open';
+
+  head.appendChild(t); 
+  head.appendChild(toggle);
+  cat.appendChild(head);
+
+  const body = document.createElement('div'); 
+  cat.appendChild(body); 
+  list.appendChild(cat);
+
+  // Items "simples" (hors parents)
   const freeItems = nodes.filter(n => n.type === 'item');
-  if (freeItems.length) { body.appendChild(rowHeader()); }
+  if (freeItems.length) {
+    body.appendChild(rowHeader());
+  }
+
   freeItems.forEach(it => {
-    if (filterQ && !(String(it.code||'').toLowerCase().includes(filterQ) || it.name.toLowerCase().includes(filterQ))) return;
-    const row = document.createElement('div'); row.className='row';
-    const name = document.createElement('div'); name.className='name'; name.textContent = (it.code? it.code+' ' : '') + (it.name||'');
-    const unitH = document.createElement('div'); unitH.className='right'; unitH.textContent = (it.unit_hours || 0);
-    const qty = document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1'; qty.value = isFinite(it.qty) ? it.qty : 0; qty.addEventListener('input', recalc);
-    const lineH = document.createElement('div'); lineH.className='right hl';
-    const assumptions = document.createElement('input'); assumptions.type='text'; assumptions.value = it.assumptions || '';
-    const lineCost = document.createElement('div'); lineCost.className='right';
-    row.appendChild(name); row.appendChild(unitH); row.appendChild(qty); row.appendChild(lineH); row.appendChild(assumptions); row.appendChild(lineCost);
+    if (
+      filterQ &&
+      !(
+        String(it.code || '').toLowerCase().includes(filterQ) ||
+        it.name.toLowerCase().includes(filterQ)
+      )
+    ) return;
+
+    const row = document.createElement('div'); 
+    row.className = 'row';
+
+    const name = document.createElement('div'); 
+    name.className = 'name'; 
+    name.textContent = (it.code ? it.code + ' ' : '') + (it.name || '');
+
+    const unitH = document.createElement('div'); 
+    unitH.className = 'right'; 
+    unitH.textContent = (it.unit_hours || 0);
+
+    const qty = document.createElement('input'); 
+    qty.type = 'number'; 
+    qty.min = '0'; 
+    qty.step = '1'; 
+    qty.value = isFinite(it.qty) ? it.qty : 0; 
+    qty.addEventListener('input', recalc);
+
+    const lineH = document.createElement('div'); 
+    lineH.className = 'right hl';
+
+    // Assumptions -> bouton "View"
+    const assumptionsCell = document.createElement('div');
+    if (it.assumptions && it.assumptions.trim() !== "") {
+      const btnAss = document.createElement('button');
+      btnAss.type = 'button';
+      btnAss.textContent = 'View';
+      btnAss.style.fontSize = '12px';
+      btnAss.addEventListener('click', () => {
+        alert(it.assumptions);
+      });
+      assumptionsCell.appendChild(btnAss);
+    } else {
+      assumptionsCell.textContent = '—';
+    }
+
+    // Nouvelle colonne : Sales remarks (champ éditable)
+    const salesRemarks = document.createElement('input');
+    salesRemarks.type = 'text';
+    salesRemarks.placeholder = 'Sales remarks…';
+
+    const lineCost = document.createElement('div'); 
+    lineCost.className = 'right';
+
+    // ⚠️ Ordre des colonnes = même ordre que grid-template-columns
+    row.appendChild(name);           // Code & Module
+    row.appendChild(unitH);          // Unit hours
+    row.appendChild(qty);            // Qty
+    row.appendChild(lineH);          // Line hours
+    row.appendChild(assumptionsCell);// Assumptions (bouton)
+    row.appendChild(salesRemarks);   // Sales remarks (texte libre)
+    row.appendChild(lineCost);       // Line cost
+
     body.appendChild(row);
     addDetails(body, it.details);
-    it._qtyEl = qty; it._lineHEl = lineH; it._lineCostEl = lineCost;
+
+    // Pointeurs utilisés par recalc()
+    it._qtyEl = qty; 
+    it._lineHEl = lineH; 
+    it._lineCostEl = lineCost;
   });
 
+  // Parents + enfants (appelle renderChildren qui doit avoir la même logique)
   nodes.filter(n => n.type === 'parent').forEach(p => {
-    if (filterQ && !(String(p.code||'').toLowerCase().includes(filterQ) || p.name.toLowerCase().includes(filterQ))) return;
-    const prow = document.createElement('div'); prow.className='parent';
-    const pname = document.createElement('div'); pname.className='pname'; pname.innerHTML = (p.code? '<span class="pcode">'+p.code+'</span>' : '') + (p.name||'');
-    const pbtn = document.createElement('button'); pbtn.textContent='Collapse'; pbtn.dataset.state='open';
-    prow.appendChild(pname); prow.appendChild(pbtn);
+    if (
+      filterQ &&
+      !(
+        String(p.code || '').toLowerCase().includes(filterQ) ||
+        p.name.toLowerCase().includes(filterQ)
+      )
+    ) return;
+
+    const prow = document.createElement('div'); 
+    prow.className = 'parent';
+
+    const pname = document.createElement('div'); 
+    pname.className = 'pname'; 
+    pname.innerHTML =
+      (p.code ? '<span class="pcode">' + p.code + '</span>' : '') +
+      (p.name || '');
+
+    const pbtn = document.createElement('button'); 
+    pbtn.textContent = 'Collapse'; 
+    pbtn.dataset.state = 'open';
+
+    prow.appendChild(pname); 
+    prow.appendChild(pbtn);
     body.appendChild(prow);
 
     const childrenWrap = renderChildren(p, body);
@@ -831,6 +1002,7 @@ function renderSection(title, nodes) {
     toggle.dataset.state = open ? 'closed' : 'open';
   });
 }
+
 
 function render() {
   list.innerHTML='';

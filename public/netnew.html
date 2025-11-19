@@ -1032,7 +1032,7 @@ function setupSaveQuote() {
 
       statusEl.textContent = "Quote sent with SharePoint link to antoine.lws@gmail.com.";
       alert("The quote has been emailed with a SharePoint link.");
-    } catch (err) {
+  } catch (err) {
       console.error(err);
       statusEl.textContent = "Error sending quote. Please try again.";
       alert("There was an error:\n" + err.message);
@@ -1040,10 +1040,8 @@ function setupSaveQuote() {
       btn.disabled = false;
     }
   });
-  
-}
+}   // fin de setupSaveQuote
 
-  <script>
 /*** Métadonnées (date) + sauvegardes locales ***/
 const STORAGE_PREFIX = "netnew_quote:";
 const STORAGE_INDEX_KEY = "netnew_quote_index";
@@ -1188,30 +1186,34 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-</script>
+</script>  <!-- fin du gros script avec toutes les fonctions -->
 
-
-
+<script>
 document.getElementById('q').addEventListener('input', (e) => {
   filterQ = e.target.value.trim().toLowerCase();
   render();
 });
+
 document.getElementById('expandAll').addEventListener('click', () => {
   document.querySelectorAll('.category > div:nth-child(2)').forEach(el => el.style.display = '');
   document.querySelectorAll('.cat-head button').forEach(b => (b.textContent='Collapse', b.dataset.state='open'));
 });
+
 document.getElementById('collapseAll').addEventListener('click', () => {
   document.querySelectorAll('.category > div:nth-child(2)').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.cat-head button').forEach(b => (b.textContent='Expand', b.dataset.state='closed'));
 });
+
 document.getElementById('rateStd').addEventListener('input', recalc);
 document.getElementById('rateCtr').addEventListener('input', recalc);
 document.getElementById('C85').addEventListener('input', recalc);
 document.getElementById('C88').addEventListener('input', recalc);
 document.getElementById('C89').addEventListener('input', recalc);
 
+// init
 render();
 setupSaveQuote();
 </script>
 </body>
 </html>
+

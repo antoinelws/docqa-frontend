@@ -97,3 +97,16 @@ button:hover, .btn:hover {
   margin: 0 auto 20px;
   max-width: 200px;
 }
+
+.login-input {
+  width: 320px;      
+  max-width: 80%;    
+  margin: 8px auto 16px auto;
+  display: block;
+  padding: 12px 14px;
+  font-size: 15px;
+  border-radius: 8px;
+  border: 1px solid #1c2a4a;
+  background: #f7f9fc;
+}
+

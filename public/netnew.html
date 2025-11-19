@@ -99,14 +99,29 @@
 </head>
 <body>
   <div id="quote-root">
-  <h1>ShipERP Effort & Cost Estimator</h1>
-  <p class="sub">Dark theme V9. Catégories (Freight Audit, Portal, Carriers, Fiori…) → Sous-modules → Détails, avec indentation & lignes guides.</p>
+    <h1>ShipERP Effort & Cost Estimator</h1>
+    <p class="sub">
+      Dark theme V9. Catégories (Freight Audit, Portal, Carriers, Fiori…) → Sous-modules → Détails, avec indentation & lignes guides.
+    </p>
 
-  <div class="top">
-    <div class="rate-card">
-      <h3>Rates</h3>
-      <div class="rate-grid">
-        <div>
+    <!-- 👇👇 NOUVEAU BLOC "Customer name" + date -->
+    <div class="quote-meta">
+      <div>
+        <label for="customerName">Customer name</label>
+        <input id="customerName" type="text" placeholder="Customer name">
+      </div>
+      <div>
+        <label for="quoteDate">Date</label>
+        <input id="quoteDate" type="text" readonly>
+      </div>
+    </div>
+    <!-- 👆👆 FIN NOUVEAU BLOC -->
+
+    <div class="top">
+      <div class="rate-card">
+        <h3>Rates</h3>
+        <div class="rate-grid">
+          <div>
           <label for="rateStd">Standard Rate (B4)</label>
           <input id="rateStd" type="number" min="0" step="1" value="215">
         </div>
@@ -1012,6 +1027,8 @@ function setupSaveQuote() {
           quote_link: sharepointUrl,
         }
       });
+      // après upload + email, juste avant l’alerte ou le message de succès :
+      saveQuoteLocally();
 
       statusEl.textContent = "Quote sent with SharePoint link to antoine.lws@gmail.com.";
       alert("The quote has been emailed with a SharePoint link.");
@@ -1023,6 +1040,7 @@ function setupSaveQuote() {
       btn.disabled = false;
     }
   });
+  
 }
 
   <script>

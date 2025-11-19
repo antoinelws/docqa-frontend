@@ -1,12 +1,12 @@
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #f4f6fa url('https://cdn2.hubspot.net/hubfs/5538017/Logos/ShipERP-color-banner.png') no-repeat center top;
-  background-size: cover;
-  color: #333;
+  background: linear-gradient(180deg, #0d1528 0%, #0b1220 60%, #081226 100%);
+  color: #e5eefc;
   margin: 0;
   padding: 0;
   min-height: 100vh;
 }
+
 
 h1, h2 {
   text-align: center;

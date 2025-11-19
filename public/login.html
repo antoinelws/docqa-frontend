@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ShipERP Assistant Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <img src="https://www.shiperp.com/wp-content/uploads/2020/04/ShipERP-Logo.png"
+         alt="ShipERP Logo" class="logo">
+    <h1>ShipERP Assistant Login</h1>
+    <p id="roleLabel" style="text-align:center; color:#555; margin-bottom: 20px;"></p>
+
+    <form id="loginForm">
+      <label for="email">Your Email:</label>
+      <input type="email" id="email" placeholder="you@company.com" required>
+
+      <!-- optional: you can add a dummy password field if you want the UX to look like a login -->
+
+      <label for="password">Password:</label>
+      <input type="password" id="password" placeholder="••••••••">
+
+
+      <button type="submit">Continue</button>
+    </form>
+
+    <p id="error" style="color:red; margin-top:10px;"></p>
+  </div>
+
+  <script>
+    // Get ?role=internal or ?role=customer from URL
+    function getRoleFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const role = params.get("role");
+      return (role === "internal" || role === "customer") ? role : "customer";
+    }
+
+    const role = getRoleFromQuery();
+    const roleLabel = document.getElementById("roleLabel");
+    roleLabel.textContent = role === "internal"
+      ? "Login to access the internal ShipERP portal."
+      : "Login to access the customer ShipERP portal.";
+
+    document.getElementById("loginForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const errorEl = document.getElementById("error");
+
+      if (!email) {
+        errorEl.textContent = "Please enter your email.";
+        return;
+      }
+
+      // Save in localStorage for later pages
+      localStorage.setItem("shiperp_user_email", email);
+      localStorage.setItem("shiperp_user_role", role);
+
+      // Redirect to correct assistant page
+      if (role === "internal") {
+        window.location.href = "internal.html";
+      } else {
+        window.location.href = "customer.html";
+      }
+    });
+  </script>
+</body>
+</html>

@@ -157,8 +157,105 @@
       Select a Sales Rep and click “Save the quote” to prepare an email.
     </div>
   </div>
-
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
+  
+/************ EmailJS – NetNew Quote ************/
+const QUOTE_EMAILJS = {
+  SERVICE_ID:  "service_x8qqp19",           // same as your other forms
+  TEMPLATE_ID: "template_7whkrog",     // <-- replace with your new template ID
+  USER_ID:     "PuZpMq1o_LbVO4IMJ",
+  TO_EMAIL:    "antoine.lws@gmail.com",
+};
+
+async function sendQuoteViaEmailJS({ subject, messageHtml, extraParams = {} }) {
+  const payload = {
+    service_id: QUOTE_EMAILJS.SERVICE_ID,
+    template_id: QUOTE_EMAILJS.TEMPLATE_ID,
+    user_id: QUOTE_EMAILJS.USER_ID,
+    template_params: {
+      subject,
+      to_email: QUOTE_EMAILJS.TO_EMAIL,
+      message_html: messageHtml || "",
+      ...extraParams,                       // sales_rep, generated_at, quote_pdf, etc.
+    }
+  };
+
+  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+}
+
+/************ PDF generator (léger) ************/
+async function generateQuotePdfBase64() {
+  // On ne capture QUE la zone de la quote, pas toute la page
+  const element = document.getElementById("quote-root") || document.body;
+
+  // Résolution réduite (scale: 1) pour limiter la taille
+  const canvas = await html2canvas(element, {
+    scale: 1,              // avant on mettait 2 → plus lourd
+    scrollX: 0,
+    scrollY: -window.scrollY
+  });
+
+  const imgData = canvas.toDataURL("image/jpeg", 0.8); // jpeg compressé
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("p", "pt", "a4");
+
+  const pageWidth  = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  // On redimensionne l’image pour qu’elle tienne ENTIEREMENT sur une seule page A4
+  const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+  const imgWidth  = canvas.width * ratio;
+  const imgHeight = canvas.height * ratio;
+
+  const x = (pageWidth  - imgWidth)  / 2;
+  const y = (pageHeight - imgHeight) / 2;
+
+  pdf.addImage(imgData, "JPEG", x, y, imgWidth, imgHeight);
+
+  // data:application/pdf;base64,.... → on ne garde que la partie base64
+  const dataUrl = pdf.output("datauristring");
+  const base64 = dataUrl.split(",")[1];
+  return base64;
+}
+
+
+async function sendQuoteViaEmailJS({ subject, replyTo, messageHtml }) {
+  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      service_id: QUOTE_EMAILJS.SERVICE_ID,
+      template_id: QUOTE_EMAILJS.TEMPLATE_ID,
+      user_id: QUOTE_EMAILJS.USER_ID,
+      template_params: {
+        subject,
+        to_email: QUOTE_EMAILJS.TO_EMAIL,
+        reply_to: replyTo || "",
+        message_html: messageHtml
+      }
+    })
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function rate() {
   const std = Number(document.getElementById('rateStd').value || 0);
   const ctr = Number(document.getElementById('rateCtr').value || 0);
@@ -830,26 +927,78 @@ function buildQuoteExtract() {
   return lines.join('\n');
 }
 
-/* Handle Save the quote click: open pre-filled email */
+/************ Save the quote: upload PDF → SharePoint → send email ************/
 function setupSaveQuote() {
-  const btn = document.getElementById('saveQuote');
-  const statusEl = document.getElementById('saveQuoteStatus');
-  btn.addEventListener('click', () => {
-    const salesRepSelect = document.getElementById('salesRep');
+  const btn = document.getElementById("saveQuote");
+  const statusEl = document.getElementById("saveQuoteStatus");
+  const salesRepSelect = document.getElementById("salesRep");
+
+  btn.addEventListener("click", async () => {
     if (!salesRepSelect.value) {
-      alert('Please select a Sales Rep before saving the quote.');
+      alert("Please select a Sales Rep before saving the quote.");
       salesRepSelect.focus();
       return;
     }
 
-    const body = encodeURIComponent(buildQuoteExtract());
-    const subject = encodeURIComponent('ShipERP Quote - ' + new Date().toLocaleString());
-    const mailto = 'mailto:antoine.lws@gmail.com?subject=' + subject + '&body=' + body;
+    const salesRep = salesRepSelect.value;
+    const now = new Date();
+    const humanDate = now.toLocaleString();
+    const fileName = `NetNewQuote_${salesRep.replace(/\s+/g, "_")}_${now.getTime()}.pdf`;
 
-    statusEl.textContent = 'Preparing email in your default mail client…';
-    window.location.href = mailto;
+    const subject = `NetNew Quote | ${salesRep} | ${humanDate}`;
+    const simpleText = `quote generated by ${salesRep} on ${humanDate}`;
+
+    btn.disabled = true;
+    statusEl.textContent = "Generating PDF and uploading to SharePoint…";
+
+    try {
+      // 1) Generate PDF base64
+      const pdfBase64 = await generateQuotePdfBase64();
+
+      // 2) Upload to SharePoint via Vercel function
+      const uploadRes = await fetch("/api/upload-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName, pdfBase64 })
+      });
+
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error("Upload failed: " + errText);
+      }
+
+      const { sharepointUrl } = await uploadRes.json();
+      if (!sharepointUrl) {
+        throw new Error("No SharePoint URL returned from upload.");
+      }
+
+      // 3) Send EmailJS email with the link
+      const messageHtml =
+        `${simpleText}<br><br>` +
+        `<a href="${sharepointUrl}">Open quote PDF in SharePoint</a>`;
+
+      await sendQuoteViaEmailJS({
+        subject,
+        messageHtml,
+        extraParams: {
+          sales_rep: salesRep,
+          generated_at: humanDate,
+          quote_link: sharepointUrl,
+        }
+      });
+
+      statusEl.textContent = "Quote sent with SharePoint link to antoine.lws@gmail.com.";
+      alert("The quote has been emailed with a SharePoint link.");
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = "Error sending quote. Please try again.";
+      alert("There was an error:\n" + err.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
 }
+
 
 document.getElementById('q').addEventListener('input', (e) => {
   filterQ = e.target.value.trim().toLowerCase();

@@ -34,6 +34,14 @@
     }
   </style>
 </head>
+<script>
+  const email = localStorage.getItem("shiperp_user_email");
+
+  if (!email) {
+    // On ne sait pas si c'est internal ou customer ⇒ on redirige vers login générique
+    window.location.href = "login.html";
+  }
+</script>  
 <body>
   <h1>Internal Tools - ShipERP</h1>
   <div class="button-container">

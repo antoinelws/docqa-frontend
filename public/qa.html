@@ -14,8 +14,6 @@
 
     <section>
       <h2>Ask a Question</h2>
-      <label for="email">Your Email:</label>
-      <input type="email" id="email" placeholder="you@company.com" required>
 
       <label for="question">Your Question:</label>
       <textarea id="question" rows="4" cols="50" placeholder="Ask your question here..."></textarea>
@@ -40,7 +38,12 @@
 <script>
   function askQuestion() {
     console.log("askQuestion triggered");
-    const email = document.getElementById("email").value;
+  const email = localStorage.getItem("shiperp_user_email");
+
+  if (!email) {
+    // On ne sait pas si c'est internal ou customer ⇒ on redirige vers login générique
+    window.location.href = "login.html";
+  }
     const question = document.getElementById("question").value;
 
     const formData = new FormData();

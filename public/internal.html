@@ -41,4 +41,21 @@
     <a href="sow_options.html" class="button">SOW Internal Estimation</a>
   </div>
 </body>
+  <script>
+  function getEmailOrRedirect() {
+    const email = localStorage.getItem("shiperp_user_email");
+    const role = localStorage.getItem("shiperp_user_role");
+
+    // internal.html require role = internal
+    if (!email || role !== "internal") {
+      window.location.href = "login.html?role=internal";
+      return null;
+    }
+
+    return email;
+  }
+
+  getEmailOrRedirect();
+</script>
+
 </html>

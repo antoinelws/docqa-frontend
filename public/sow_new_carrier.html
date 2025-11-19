@@ -292,6 +292,14 @@
     }
   </style>
 </head>
+<script>
+  const email = localStorage.getItem("shiperp_user_email");
+
+  if (!email) {
+    window.location.href = "login.html?role=internal";
+  }
+</script>
+  
 <body>
   <div class="container">
     <div class="header">

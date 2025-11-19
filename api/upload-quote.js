@@ -1,6 +1,7 @@
 // api/upload-quote.js
+// Backend Vercel : reçoit un PDF en base64, l’envoie dans SharePoint (site PMO)
+// puis renvoie l’URL de partage au front.
 
-// Node 18+ on Vercel has global fetch; if not, add node-fetch.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -16,6 +17,11 @@ export default async function handler(req, res) {
     const tenantId = process.env.MS_TENANT_ID;
     const clientId = process.env.MS_CLIENT_ID;
     const clientSecret = process.env.MS_CLIENT_SECRET;
+
+    if (!tenantId || !clientId || !clientSecret) {
+      console.error("Missing tenant/client env vars");
+      return res.status(500).json({ error: "Missing Graph auth configuration" });
+    }
 
     const tokenRes = await fetch(
       `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
@@ -39,18 +45,30 @@ export default async function handler(req, res) {
 
     const { access_token } = await tokenRes.json();
 
-    const siteId = process.env.MS_SITE_ID;
-    const driveId = process.env.MS_DRIVE_ID;
-    const folderPath = process.env.MS_FOLDER_PATH || "Quotes";
+    // 2) Prepare SharePoint info
+    const siteId = process.env.MS_SITE_ID;   // ex: "erpintegratedsolutions.sharepoint.com,xxx,yyy"
+    const driveId = process.env.MS_DRIVE_ID; // drive "Documents" du site PMO
+    const folderPath = process.env.MS_FOLDER_PATH || "AI/netNew Quote";
 
-    // 2) Upload PDF to SharePoint
+    if (!siteId || !driveId) {
+      console.error("Missing MS_SITE_ID or MS_DRIVE_ID");
+      return res.status(500).json({ error: "Missing SharePoint configuration" });
+    }
+
     // pdfBase64 is raw base64 — turn it into binary
     const pdfBuffer = Buffer.from(pdfBase64, "base64");
 
-    const uploadUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/root:/${encodeURIComponent(
-      folderPath
-    )}/${encodeURIComponent(fileName)}:/content`;
+    // IMPORTANT : on encode chaque segment du chemin séparément
+    const safeFolderPath = folderPath
+      .split("/")
+      .map((part) => encodeURIComponent(part))
+      .join("/");
 
+    const safeFileName = encodeURIComponent(fileName);
+
+    const uploadUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/root:/${safeFolderPath}/${safeFileName}:/content`;
+
+    // 3) Upload PDF to SharePoint
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
@@ -68,7 +86,7 @@ export default async function handler(req, res) {
 
     const item = await uploadRes.json();
 
-    // 3) Create a sharing link (view link, org scope)
+    // 4) Create a sharing link (view link, org scope)
     const linkRes = await fetch(
       `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/items/${item.id}/createLink`,
       {
@@ -79,7 +97,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           type: "view",
-          scope: "organization", // or "anonymous" if your tenant allows
+          scope: "organization", // or "anonymous" si ton tenant le permet
         }),
       }
     );

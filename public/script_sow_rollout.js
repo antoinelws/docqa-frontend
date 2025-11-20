@@ -73,6 +73,7 @@
     if (!modulesUsed.length) modulesUsed = getMulti("zEnhancementRollout");
     if (!modulesUsed.length) modulesUsed = getMulti("moduleUsed");
     if (!modulesUsed.length) modulesUsed = getMulti("shiperpModule");
+    if (!modulesUsed.length) modulesUsed = getMulti("modules"); // Added for checkbox support
     if (!modulesUsed.length) modulesUsed = Array.from(document.querySelectorAll(".module-box:checked")).map(x => x.value);
     if (!modulesUsed.length) {
       const s = getVal("shiperpModule") || getVal("modules") || getVal("module");
@@ -114,7 +115,7 @@
 
   // -- Calcul local basé sur la formule Excel
   function calculateLocalEstimate(payload) {
-    const { siteCount, shipToRegion, blueprintNeeded, onlineCarriers } = payload;
+    const { siteCount, shipToRegion, blueprintNeeded, onlineCarriers, modulesUsed } = payload;
 
     // Si "blueprintNeeded" = "No" → 16 heures de Blueprint/Workshop requis
     if (blueprintNeeded === "No") {
@@ -153,13 +154,19 @@
     // Ajouter 16 heures si région n'est pas US
     const regionHours = (shipToRegion === "US") ? 0 : 16;
 
-    const total = baseHours + regionHours;
+    // Ajouter 40 heures si plus de 3 modules sont sélectionnés
+    const moduleCount = modulesUsed ? modulesUsed.length : 0;
+    const moduleHours = (moduleCount > 3) ? 40 : 0;
+
+    const total = baseHours + regionHours + moduleHours;
 
     return {
       total_effort: total,
-      breakdown: `Base hours (${siteCount}): ${baseHours}h + Region adjustment: ${regionHours}h`,
+      breakdown: `Base hours (${siteCount}): ${baseHours}h + Region adjustment: ${regionHours}h + Module complexity (${moduleCount} modules): ${moduleHours}h`,
       baseHours,
-      regionHours
+      regionHours,
+      moduleHours,
+      moduleCount
     };
   }
 

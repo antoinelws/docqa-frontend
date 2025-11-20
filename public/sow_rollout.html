@@ -314,7 +314,7 @@
               <label for="mod_supplier">Supplier Portal</label>
             </div>
           </div>
-          <span class="helper-text">Select all modules that apply</span>
+          <span class="helper-text">Select all modules that apply (40 hours added if more than 3 modules selected)</span>
         </div>
       </div>
 
@@ -434,13 +434,18 @@
 
         // Add 16 hours if region is not US
         const regionHours = (shipToRegion === "US") ? 0 : 16;
-        const total = baseHours + regionHours;
+        
+        // Add 40 hours if more than 3 modules are selected
+        const moduleHours = (modules.length > 3) ? 40 : 0;
+        
+        const total = baseHours + regionHours + moduleHours;
 
         return {
           total_effort: total,
-          breakdown: `Base hours (${siteCount}): ${baseHours}h\nRegion adjustment (${shipToRegion}): ${regionHours}h\nSelected modules: ${modules.length > 0 ? modules.join(', ') : 'None'}`,
+          breakdown: `Base hours (${siteCount}): ${baseHours}h\nRegion adjustment (${shipToRegion}): ${regionHours}h\nModule complexity (${modules.length} modules): ${moduleHours}h\nSelected modules: ${modules.length > 0 ? modules.join(', ') : 'None'}`,
           baseHours,
-          regionHours
+          regionHours,
+          moduleHours
         };
       }
 

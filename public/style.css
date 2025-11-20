@@ -26,13 +26,21 @@ h1, h2 {
   border-radius: 16px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
   text-align: center;
+  color: #0c3c60;          /* 👈 texte bien lisible */
 }
+
+.container p,
+.home-screen p {
+  color: #4b5563;          /* 👈 sous-texte / descriptions (ex: “Please choose an option below”) */
+}
+
 
 label {
   font-weight: bold;
 }
 
-textarea, input[type="email"], input[type="file"] {
+textarea,
+input[type="file"] {
   width: 100%;
   padding: 12px;
   margin: 10px 0;
@@ -41,6 +49,7 @@ textarea, input[type="email"], input[type="file"] {
   box-sizing: border-box;
   font-size: 16px;
 }
+
 
 button, .btn {
   padding: 12px 24px;
@@ -51,13 +60,15 @@ button, .btn {
   margin: 10px 5px;
   text-decoration: none;
   display: inline-block;
-  transition: background 0.3s;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
 button:hover, .btn:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
-
 .btn.primary {
   background-color: #0c3c60;
   color: white;

@@ -32,9 +32,25 @@
     .category { background: var(--panel); border:1px solid var(--border); border-radius:12px; margin-bottom:14px; }
     .cat-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--border); }
     .cat-title { font-weight:800; }
+    .grid-head { 
+      display:grid; 
+      grid-template-columns: 1.6fr 90px 110px 120px 110px 1fr 120px; 
+      gap:10px; 
+      padding:10px 14px; 
+      border-bottom:1px dashed #142241; 
+      color: var(--muted); 
+    }
+    
+    .row { 
+      display:grid; 
+      grid-template-columns: 1.6fr 90px 110px 120px 110px 1fr 120px; 
+      gap:10px; 
+      align-items:start; 
+      padding:10px 14px; 
+      border-bottom:1px dashed #142241; 
+      position:relative; 
+    }
 
-    .grid-head { display:grid; grid-template-columns: 1.6fr 90px 110px 120px 1fr 120px; gap:10px; padding:10px 14px; border-bottom:1px dashed #142241; color: var(--muted); }
-    .row { display:grid; grid-template-columns: 1.6fr 90px 110px 120px 1fr 120px; gap:10px; align-items:start; padding:10px 14px; border-bottom:1px dashed #142241; position:relative; }
     .row:last-child { border-bottom:none; }
     .right { text-align:right; }
     .name { font-weight:600; }
@@ -95,17 +111,46 @@
         grid-template-columns: 1fr;
       }
     }
+    .quote-meta {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.quote-meta label {
+  display: block;
+  font-size: 12px;
+  opacity: .8;
+  margin-bottom: 2px;
+}
+
   </style>
 </head>
 <body>
-  <h1>ShipERP Effort & Cost Estimator</h1>
-  <p class="sub">Dark theme V9. Catégories (Freight Audit, Portal, Carriers, Fiori…) → Sous-modules → Détails, avec indentation & lignes guides.</p>
+  <div id="quote-root">
+    <h1>ShipERP Effort & Cost Estimator</h1>
+    <p class="sub">
+    For Netnew project only
+    </p>
 
-  <div class="top">
-    <div class="rate-card">
-      <h3>Rates</h3>
-      <div class="rate-grid">
-        <div>
+    <!-- 👇👇 NOUVEAU BLOC "Customer name" + date -->
+    <div class="quote-meta">
+      <div>
+        <label for="customerName">Customer name</label>
+        <input id="customerName" type="text" placeholder="Customer name">
+      </div>
+      <div>
+        <label for="quoteDate">Date</label>
+        <input id="quoteDate" type="text" readonly>
+      </div>
+    </div>
+    <!-- 👆👆 FIN NOUVEAU BLOC -->
+
+    <div class="top">
+      <div class="rate-card">
+        <h3>Rates</h3>
+        <div class="rate-grid">
+          <div>
           <label for="rateStd">Standard Rate (B4)</label>
           <input id="rateStd" type="number" min="0" step="1" value="215">
         </div>
@@ -153,9 +198,25 @@
     <div class="field">
       <button id="saveQuote">Save the quote</button>
     </div>
+     </div> 
     <div class="quote-actions-status" id="saveQuoteStatus">
       Select a Sales Rep and click “Save the quote” to prepare an email.
     </div>
+
+     <!-- 🔽 NOUVEAU : liste de quotes sauvegardées -->
+  <div class="row2">
+    <div class="lbl">Saved quotes</div>
+    <div class="hrs">
+      <select id="savedQuotes">
+        <option value="">-- Select saved quote --</option>
+      </select>
+    </div>
+    <div class="usd">
+      <button id="loadQuoteBtn" type="button">Load</button>
+    </div>
+  </div>
+
+  <p id="saveStatus" class="sub" style="margin-top:8px;font-size:12px;opacity:.8;"></p>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -191,14 +252,13 @@ async function sendQuoteViaEmailJS({ subject, messageHtml, extraParams = {} }) {
   if (!res.ok) throw new Error(await res.text());
 }
 
-/************ PDF generator (léger) ************/
+/************ PDF generator (multi-page, mais léger) ************/
 async function generateQuotePdfBase64() {
-  // On ne capture QUE la zone de la quote, pas toute la page
+  // On capture toute la zone de la quote
   const element = document.getElementById("quote-root") || document.body;
 
-  // Résolution réduite (scale: 1) pour limiter la taille
   const canvas = await html2canvas(element, {
-    scale: 1,              // avant on mettait 2 → plus lourd
+    scale: 1,              // résolution raisonnable pour limiter la taille
     scrollX: 0,
     scrollY: -window.scrollY
   });
@@ -211,40 +271,29 @@ async function generateQuotePdfBase64() {
   const pageWidth  = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
-  // On redimensionne l’image pour qu’elle tienne ENTIEREMENT sur une seule page A4
-  const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-  const imgWidth  = canvas.width * ratio;
-  const imgHeight = canvas.height * ratio;
+  // On fixe la largeur de l'image à la largeur de la page
+  const imgWidth  = pageWidth;
+  const imgHeight = canvas.height * imgWidth / canvas.width;
 
-  const x = (pageWidth  - imgWidth)  / 2;
-  const y = (pageHeight - imgHeight) / 2;
+  let heightLeft = imgHeight;
+  let position = 0;
 
-  pdf.addImage(imgData, "JPEG", x, y, imgWidth, imgHeight);
+  // Page 1
+  pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+
+  // Pages suivantes si le contenu dépasse une page A4
+  while (heightLeft > 0) {
+    pdf.addPage();
+    position -= pageHeight; // on remonte l'image pour "voir" la suite
+    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
 
   // data:application/pdf;base64,.... → on ne garde que la partie base64
   const dataUrl = pdf.output("datauristring");
   const base64 = dataUrl.split(",")[1];
   return base64;
-}
-
-
-async function sendQuoteViaEmailJS({ subject, replyTo, messageHtml }) {
-  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      service_id: QUOTE_EMAILJS.SERVICE_ID,
-      template_id: QUOTE_EMAILJS.TEMPLATE_ID,
-      user_id: QUOTE_EMAILJS.USER_ID,
-      template_params: {
-        subject,
-        to_email: QUOTE_EMAILJS.TO_EMAIL,
-        reply_to: replyTo || "",
-        message_html: messageHtml
-      }
-    })
-  });
-  if (!res.ok) throw new Error(await res.text());
 }
 
 function escapeHtml(str) {
@@ -713,71 +762,239 @@ const list = document.getElementById('list');
 let filterQ = '';
 
 function rowHeader() {
-  const hdr = document.createElement('div'); hdr.className='grid-head';
-  hdr.innerHTML = '<div>Code & Module</div><div class="right">Unit hours (B)</div><div class="right">Qty (C)</div><div class="right">Line hours (D)</div><div>Assumptions (F)</div><div class="right">Line cost (E)</div>';
+  const hdr = document.createElement('div'); 
+  hdr.className='grid-head';
+  hdr.innerHTML = `
+    <div>Code & Module</div>
+    <div class="right">Unit hours (B)</div>
+    <div class="right">Qty (C)</div>
+    <div class="right">Line hours (D)</div>
+    <div>Assumptions</div>
+    <div>Sales remarks</div>
+    <div class="right">Line cost (E)</div>
+  `;
   return hdr;
 }
+
 
 function addDetails(container, details) {
   if (!details || !details.length) return;
   const det = document.createElement('div'); det.className='detail'; det.textContent = details.join('\n');
   container.appendChild(det);
 }
+function makeSlug(node) {
+  const base = (node.code ? node.code + '_' : '') + (node.name || '');
+  return base
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60);
+}
 
 function renderChildren(parent, mount) {
-  const wrap = document.createElement('div'); wrap.className='children'; mount.appendChild(wrap);
+  const wrap = document.createElement('div'); 
+  wrap.className = 'children'; 
+  mount.appendChild(wrap);
   wrap.appendChild(rowHeader());
 
   (parent.children || []).forEach(child => {
     if (filterQ && !(String(child.code||'').toLowerCase().includes(filterQ) || child.name.toLowerCase().includes(filterQ))) return;
-    const row = document.createElement('div'); row.className='row child';
-    const name = document.createElement('div'); name.className='name'; name.textContent = (child.code? child.code+' ' : '') + (child.name||'');
-    const unitH = document.createElement('div'); unitH.className='right'; unitH.textContent = (child.unit_hours || 0);
-    const qty = document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1'; qty.value = isFinite(child.qty) ? child.qty : 0; qty.addEventListener('input', recalc);
-    const lineH = document.createElement('div'); lineH.className='right hl';
-    const assumptions = document.createElement('input'); assumptions.type='text'; assumptions.value = child.assumptions || '';
-    const lineCost = document.createElement('div'); lineCost.className='right';
 
-    row.appendChild(name); row.appendChild(unitH); row.appendChild(qty); row.appendChild(lineH); row.appendChild(assumptions); row.appendChild(lineCost);
+    const slug = makeSlug(child);
+
+    const row = document.createElement('div'); 
+    row.className = 'row child';
+
+    const name = document.createElement('div'); 
+    name.className = 'name'; 
+    name.textContent = (child.code ? child.code + ' ' : '') + (child.name || '');
+
+    const unitH = document.createElement('div'); 
+    unitH.className = 'right'; 
+    unitH.textContent = (child.unit_hours || 0);
+
+    const qty = document.createElement('input'); 
+    qty.type = 'number'; 
+    qty.min = '0'; 
+    qty.step = '1'; 
+    qty.value = isFinite(child.qty) ? child.qty : 0; 
+    qty.id = `qty_${slug}`;           // 👈 ID stable pour la sauvegarde
+    qty.addEventListener('input', recalc);
+
+    const lineH = document.createElement('div'); 
+    lineH.className = 'right hl';
+
+    // Assumptions -> bouton View
+    const assumptionsCell = document.createElement('div');
+    if (child.assumptions && child.assumptions.trim() !== "") {
+      const btnAss = document.createElement('button');
+      btnAss.type = 'button';
+      btnAss.textContent = 'View';
+      btnAss.style.fontSize = '12px';
+      btnAss.addEventListener('click', () => {
+        alert(child.assumptions);
+      });
+      assumptionsCell.appendChild(btnAss);
+    } else {
+      assumptionsCell.textContent = '—';
+    }
+
+    // Sales remarks -> input texte avec ID
+    const salesRemarks = document.createElement('input');
+    salesRemarks.type = 'text';
+    salesRemarks.placeholder = 'Sales remarks…';
+    salesRemarks.id = `remarks_${slug}`;   // 👈 ID stable pour la sauvegarde
+
+    const lineCost = document.createElement('div'); 
+    lineCost.className = 'right';
+
+    row.appendChild(name); 
+    row.appendChild(unitH); 
+    row.appendChild(qty); 
+    row.appendChild(lineH); 
+    row.appendChild(assumptionsCell); 
+    row.appendChild(salesRemarks); 
+    row.appendChild(lineCost);
+
     wrap.appendChild(row);
     addDetails(wrap, child.details);
-    child._qtyEl = qty; child._lineHEl = lineH; child._lineCostEl = lineCost;
+
+    // Pour recalc()
+    child._qtyEl = qty; 
+    child._lineHEl = lineH; 
+    child._lineCostEl = lineCost;
   });
+
   return wrap;
 }
 
 function renderSection(title, nodes) {
-  const cat = document.createElement('div'); cat.className='category';
-  const head = document.createElement('div'); head.className='cat-head';
-  const t = document.createElement('div'); t.className='cat-title'; t.textContent = title;
-  const toggle = document.createElement('button'); toggle.textContent='Collapse'; toggle.dataset.state='open';
-  head.appendChild(t); head.appendChild(toggle);
-  cat.appendChild(head);
-  const body = document.createElement('div'); cat.appendChild(body); list.appendChild(cat);
+  const cat = document.createElement('div'); 
+  cat.className = 'category';
 
+  const head = document.createElement('div'); 
+  head.className = 'cat-head';
+
+  const t = document.createElement('div'); 
+  t.className = 'cat-title'; 
+  t.textContent = title;
+
+  const toggle = document.createElement('button'); 
+  toggle.textContent = 'Collapse'; 
+  toggle.dataset.state = 'open';
+
+  head.appendChild(t); 
+  head.appendChild(toggle);
+  cat.appendChild(head);
+
+  const body = document.createElement('div'); 
+  cat.appendChild(body); 
+  list.appendChild(cat);
+
+  // Items "simples" (non parents)
   const freeItems = nodes.filter(n => n.type === 'item');
-  if (freeItems.length) { body.appendChild(rowHeader()); }
+  if (freeItems.length) {
+    body.appendChild(rowHeader());
+  }
+
   freeItems.forEach(it => {
-    if (filterQ && !(String(it.code||'').toLowerCase().includes(filterQ) || it.name.toLowerCase().includes(filterQ))) return;
-    const row = document.createElement('div'); row.className='row';
-    const name = document.createElement('div'); name.className='name'; name.textContent = (it.code? it.code+' ' : '') + (it.name||'');
-    const unitH = document.createElement('div'); unitH.className='right'; unitH.textContent = (it.unit_hours || 0);
-    const qty = document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1'; qty.value = isFinite(it.qty) ? it.qty : 0; qty.addEventListener('input', recalc);
-    const lineH = document.createElement('div'); lineH.className='right hl';
-    const assumptions = document.createElement('input'); assumptions.type='text'; assumptions.value = it.assumptions || '';
-    const lineCost = document.createElement('div'); lineCost.className='right';
-    row.appendChild(name); row.appendChild(unitH); row.appendChild(qty); row.appendChild(lineH); row.appendChild(assumptions); row.appendChild(lineCost);
+    if (
+      filterQ &&
+      !(
+        String(it.code || '').toLowerCase().includes(filterQ) ||
+        it.name.toLowerCase().includes(filterQ)
+      )
+    ) return;
+
+    const slug = makeSlug(it);
+
+    const row = document.createElement('div'); 
+    row.className = 'row';
+
+    const name = document.createElement('div'); 
+    name.className = 'name'; 
+    name.textContent = (it.code ? it.code + ' ' : '') + (it.name || '');
+
+    const unitH = document.createElement('div'); 
+    unitH.className = 'right'; 
+    unitH.textContent = (it.unit_hours || 0);
+
+    const qty = document.createElement('input'); 
+    qty.type = 'number'; 
+    qty.min = '0'; 
+    qty.step = '1'; 
+    qty.value = isFinite(it.qty) ? it.qty : 0; 
+    qty.id = `qty_${slug}`;              // 👈 ID stable
+    qty.addEventListener('input', recalc);
+
+    const lineH = document.createElement('div'); 
+    lineH.className = 'right hl';
+
+    // Assumptions -> bouton View
+    const assumptionsCell = document.createElement('div');
+    if (it.assumptions && it.assumptions.trim() !== "") {
+      const btnAss = document.createElement('button');
+      btnAss.type = 'button';
+      btnAss.textContent = 'View';
+      btnAss.style.fontSize = '12px';
+      btnAss.addEventListener('click', () => {
+        alert(it.assumptions);
+      });
+      assumptionsCell.appendChild(btnAss);
+    } else {
+      assumptionsCell.textContent = '—';
+    }
+
+    // Sales remarks -> input texte avec ID
+    const salesRemarks = document.createElement('input');
+    salesRemarks.type = 'text';
+    salesRemarks.placeholder = 'Sales remarks…';
+    salesRemarks.id = `remarks_${slug}`;   // 👈 ID stable
+
+    const lineCost = document.createElement('div'); 
+    lineCost.className = 'right';
+
+    row.appendChild(name);           // Code & Module
+    row.appendChild(unitH);          // Unit hours
+    row.appendChild(qty);            // Qty
+    row.appendChild(lineH);          // Line hours
+    row.appendChild(assumptionsCell);// Assumptions
+    row.appendChild(salesRemarks);   // Sales remarks
+    row.appendChild(lineCost);       // Line cost
+
     body.appendChild(row);
     addDetails(body, it.details);
-    it._qtyEl = qty; it._lineHEl = lineH; it._lineCostEl = lineCost;
+
+    it._qtyEl = qty; 
+    it._lineHEl = lineH; 
+    it._lineCostEl = lineCost;
   });
 
+  // Parents
   nodes.filter(n => n.type === 'parent').forEach(p => {
-    if (filterQ && !(String(p.code||'').toLowerCase().includes(filterQ) || p.name.toLowerCase().includes(filterQ))) return;
-    const prow = document.createElement('div'); prow.className='parent';
-    const pname = document.createElement('div'); pname.className='pname'; pname.innerHTML = (p.code? '<span class="pcode">'+p.code+'</span>' : '') + (p.name||'');
-    const pbtn = document.createElement('button'); pbtn.textContent='Collapse'; pbtn.dataset.state='open';
-    prow.appendChild(pname); prow.appendChild(pbtn);
+    if (
+      filterQ &&
+      !(
+        String(p.code || '').toLowerCase().includes(filterQ) ||
+        p.name.toLowerCase().includes(filterQ)
+      )
+    ) return;
+
+    const prow = document.createElement('div'); 
+    prow.className = 'parent';
+
+    const pname = document.createElement('div'); 
+    pname.className = 'pname'; 
+    pname.innerHTML =
+      (p.code ? '<span class="pcode">' + p.code + '</span>' : '') +
+      (p.name || '');
+
+    const pbtn = document.createElement('button'); 
+    pbtn.textContent = 'Collapse'; 
+    pbtn.dataset.state = 'open';
+
+    prow.appendChild(pname); 
+    prow.appendChild(pbtn);
     body.appendChild(prow);
 
     const childrenWrap = renderChildren(p, body);
@@ -798,6 +1015,7 @@ function renderSection(title, nodes) {
     toggle.dataset.state = open ? 'closed' : 'open';
   });
 }
+
 
 function render() {
   list.innerHTML='';
@@ -837,14 +1055,38 @@ function recalc() {
   const otherHrs = Number(document.getElementById('C85').value || 0);
   const D84 = otherHrs; const E84 = D84 * rH;
   const D85 = 40; const E85 = D85 * rH;
-  const D86 = D82 + D83 + D84 + D85; const E86 = D86 * rH;
-  const PMpct = 0.2; document.getElementById('PMpctLbl').textContent = Math.round(PMpct*100) + '%';
-  const D87 = D86 * PMpct; const E87 = D87 * rH;
-  const C88 = Number(document.getElementById('C88').value || 0) / 100.0;
-  const C89 = Number(document.getElementById('C89').value || 0);
-  const E88 = E87 * C88;
-  const E89 = C89;
-  const E90 = E87 - (E88 + E89);
+ const D86 = D82 + D83 + D84 + D85;
+const E86 = D86 * rH;
+
+// PM 20 %
+const PMpct = 0.2;
+document.getElementById('PMpctLbl').textContent = Math.round(PMpct * 100) + '%';
+
+// on arrondit les heures PM
+const rawPMHours = D86 * PMpct;
+const D87 = Math.round(rawPMHours);
+const E87 = D87 * rH;
+
+// Remise
+const C88 = Number(document.getElementById('C88').value || 0) / 100.0; // %
+const C89 = Number(document.getElementById('C89').value || 0);        // $
+
+// 👉 Nouveau : total projet = Grand Total + PM
+const grossTotal = E86 + E87;
+
+// remise % appliquée sur tout
+const E88 = grossTotal * C88;
+
+// remise fixe
+const E89 = C89;
+
+// Total After Discount = tout - remises
+const E90 = grossTotal - (E88 + E89);
+  
+// Total hours = Grand Total + PM
+const D90 = D86 + D87;
+document.getElementById('D90').textContent = D90;
+
   document.getElementById('D82').textContent = D82;
   document.getElementById('E82').textContent = fmtUSD(E82);
   document.getElementById('D83').textContent = D83;
@@ -867,6 +1109,8 @@ function buildQuoteExtract() {
   const salesRep = document.getElementById('salesRep').value || 'N/A';
   const rateStd = document.getElementById('rateStd').value || '';
   const rateCtr = document.getElementById('rateCtr').value || '';
+  const customer = document.getElementById("customerName").value || "";
+
 
   lines.push('ShipERP Effort & Cost Estimator - Quote');
   lines.push('Generated: ' + new Date().toLocaleString());
@@ -941,6 +1185,9 @@ function setupSaveQuote() {
     }
 
     const salesRep = salesRepSelect.value;
+      // 👇 NOUVEAU : on récupère le client
+    const customerInput = document.getElementById("customerName");
+    const customer = customerInput ? customerInput.value.trim() : "";
     const now = new Date();
     const humanDate = now.toLocaleString();
     const fileName = `NetNewQuote_${salesRep.replace(/\s+/g, "_")}_${now.getTime()}.pdf`;
@@ -984,12 +1231,16 @@ function setupSaveQuote() {
           sales_rep: salesRep,
           generated_at: humanDate,
           quote_link: sharepointUrl,
+          client: customer   // 👈 NOUVEAU !
         }
       });
 
+      // après upload + email, juste avant l’alerte ou le message de succès :
+      saveQuoteLocally();
+
       statusEl.textContent = "Quote sent with SharePoint link to antoine.lws@gmail.com.";
       alert("The quote has been emailed with a SharePoint link.");
-    } catch (err) {
+  } catch (err) {
       console.error(err);
       statusEl.textContent = "Error sending quote. Please try again.";
       alert("There was an error:\n" + err.message);
@@ -997,29 +1248,180 @@ function setupSaveQuote() {
       btn.disabled = false;
     }
   });
+}   // fin de setupSaveQuote
+
+/*** Métadonnées (date) + sauvegardes locales ***/
+const STORAGE_PREFIX = "netnew_quote:";
+const STORAGE_INDEX_KEY = "netnew_quote_index";
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
+function initQuoteMetaAndStorage() {
+  const dateInput = document.getElementById("quoteDate");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = todayISO();
+  }
+  refreshSavedQuotesDropdown();
+}
 
+// Génère un ID unique : CustomerName_YYYY-MM-DD_R4ND
+function generateQuoteId(customer, date) {
+  const slugCustomer = (customer || "NoName")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Za-z0-9_]/g, "")
+    .slice(0, 40);
+  const safeDate = (date || todayISO()).replace(/[^0-9-]/g, "");
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${slugCustomer || "Quote"}_${safeDate}_${rand}`;
+}
+
+// Index des quotes : [{id, label}]
+function loadIndex() {
+  try {
+    const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveIndex(index) {
+  localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(index));
+}
+
+function refreshSavedQuotesDropdown() {
+  const select = document.getElementById("savedQuotes");
+  if (!select) return;
+  const index = loadIndex();
+  select.innerHTML = '<option value="">-- Select saved quote --</option>';
+  index.forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    select.appendChild(opt);
+  });
+}
+
+// Capture tous les champs du formulaire (dans #quote-root)
+function collectFormState() {
+  const container = document.getElementById("quote-root");
+  const fields = container.querySelectorAll("input, select, textarea");
+  const state = {};
+  fields.forEach(el => {
+    const key = el.id || el.name;
+    if (!key) return;
+    if (el.type === "checkbox") {
+      state[key] = el.checked;
+    } else if (el.type === "radio") {
+      if (el.checked) state[key] = el.value;
+    } else {
+      state[key] = el.value;
+    }
+  });
+  return state;
+}
+
+// Restaure les champs
+function applyFormState(state) {
+  const container = document.getElementById("quote-root");
+  Object.entries(state || {}).forEach(([key, value]) => {
+    const el = container.querySelector(`#${CSS.escape(key)}, [name='${CSS.escape(key)}']`);
+    if (!el) return;
+    if (el.type === "checkbox") {
+      el.checked = !!value;
+    } else if (el.type === "radio") {
+      if (el.value === value) el.checked = true;
+    } else {
+      el.value = value;
+    }
+    // On déclenche un événement input/change pour recalculer les totaux si ton code les écoute
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  // Si tu as une fonction globale de recalcul, tu peux l'appeler ici :
+  if (window.recalcAll) window.recalcAll();
+}
+
+// Sauvegarde locale après upload/email
+function saveQuoteLocally() {
+  const customer = document.getElementById("customerName")?.value || "";
+  const date = document.getElementById("quoteDate")?.value || todayISO();
+
+  const id = generateQuoteId(customer, date);
+  const label = `${customer || "NoName"} | ${date}`;
+
+  const state = collectFormState();
+  localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(state));
+
+  const index = loadIndex();
+  index.push({ id, label });
+  saveIndex(index);
+  refreshSavedQuotesDropdown();
+
+  const status = document.getElementById("saveStatus");
+  if (status) {
+    status.textContent = `Quote saved locally as "${label}".`;
+  }
+}
+
+function loadQuoteById(id) {
+  if (!id) return;
+  const raw = localStorage.getItem(STORAGE_PREFIX + id);
+  if (!raw) return;
+  const state = JSON.parse(raw);
+  applyFormState(state);
+
+  const status = document.getElementById("saveStatus");
+  if (status) {
+    status.textContent = `Quote "${id}" loaded from local storage.`;
+  }
+}
+
+// Initialisation au chargement de la page
+window.addEventListener("DOMContentLoaded", () => {
+  initQuoteMetaAndStorage();
+
+  const loadBtn = document.getElementById("loadQuoteBtn");
+  if (loadBtn) {
+    loadBtn.addEventListener("click", () => {
+      const select = document.getElementById("savedQuotes");
+      if (!select || !select.value) return;
+      loadQuoteById(select.value);
+    });
+  }
+});
+</script>  <!-- fin du gros script avec toutes les fonctions -->
+
+<script>
 document.getElementById('q').addEventListener('input', (e) => {
   filterQ = e.target.value.trim().toLowerCase();
   render();
 });
+
 document.getElementById('expandAll').addEventListener('click', () => {
   document.querySelectorAll('.category > div:nth-child(2)').forEach(el => el.style.display = '');
   document.querySelectorAll('.cat-head button').forEach(b => (b.textContent='Collapse', b.dataset.state='open'));
 });
+
 document.getElementById('collapseAll').addEventListener('click', () => {
   document.querySelectorAll('.category > div:nth-child(2)').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.cat-head button').forEach(b => (b.textContent='Expand', b.dataset.state='closed'));
 });
+
 document.getElementById('rateStd').addEventListener('input', recalc);
 document.getElementById('rateCtr').addEventListener('input', recalc);
 document.getElementById('C85').addEventListener('input', recalc);
 document.getElementById('C88').addEventListener('input', recalc);
 document.getElementById('C89').addEventListener('input', recalc);
 
+// init
 render();
 setupSaveQuote();
 </script>
 </body>
 </html>
+

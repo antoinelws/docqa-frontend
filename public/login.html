@@ -17,11 +17,8 @@
       <label for="email">Your Email:</label>
       <input type="email" id="email" class="login-input" placeholder="you@company.com" required>
 
-      <!-- optional: you can add a dummy password field if you want the UX to look like a login -->
-
       <label for="password">Password:</label>
-      <input type="password" id="password" class="login-input" placeholder="•••••••">
-
+      <input type="password" id="password" class="login-input" placeholder="•••••••" required>
 
       <button type="submit">Continue</button>
     </form>
@@ -30,7 +27,8 @@
   </div>
 
   <script>
-    // Get ?role=internal or ?role=customer from URL
+    const BACKEND_BASE = "https://docqa-api.onrender.com";
+
     function getRoleFromQuery() {
       const params = new URLSearchParams(window.location.search);
       const role = params.get("role");
@@ -43,25 +41,45 @@
       ? "Login to access the internal ShipERP portal."
       : "Login to access the customer ShipERP portal.";
 
-    document.getElementById("loginForm").addEventListener("submit", function (e) {
+    document.getElementById("loginForm").addEventListener("submit", async function (e) {
       e.preventDefault();
+
       const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
       const errorEl = document.getElementById("error");
 
-      if (!email) {
-        errorEl.textContent = "Please enter your email.";
+      if (!email || !password) {
+        errorEl.textContent = "Please enter email and password.";
         return;
       }
 
-      // Save in localStorage for later pages
-      localStorage.setItem("shiperp_user_email", email);
-      localStorage.setItem("shiperp_user_role", role);
+      errorEl.textContent = "";
 
-      // Redirect to correct assistant page
-      if (role === "internal") {
-        window.location.href = "internal.html";
-      } else {
-        window.location.href = "customer.html";
+      try {
+        const formData = new FormData();
+        formData.append("email", email);
+        formData.append("password", password);
+
+        const response = await fetch(`${BACKEND_BASE}/auth/login`, {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Login failed");
+        }
+
+        // Save basic info locally (optional)
+        localStorage.setItem("shiperp_user_email", email);
+        localStorage.setItem("shiperp_user_role", role);
+
+        // Redirect to backend SSO entry
+        window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(data.token)}`;
+
+      } catch (err) {
+        errorEl.textContent = err.message;
       }
     });
   </script>

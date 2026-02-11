@@ -11,23 +11,41 @@
     <h1>Thank you for using ShipERP</h1>
     <div class="home-buttons">
       <a href="sow_options_customer.html" class="btn primary">Request a Quote for New SOW</a>
-      <a href="qa.html" class="btn secondary">Use the ShipERP Q&A AI Bot</a>
+      <a href="#" class="btn secondary" onclick="openAIBot(event)">Use the ShipERP Q&A AI Bot</a>
     </div>
   </div>
-</body>
- <script>
-  function getEmailOrRedirect() {
-    const email = localStorage.getItem("shiperp_user_email");
-    const role = localStorage.getItem("shiperp_user_role");
 
-    if (!email || role !== "customer") {
-      window.location.href = "login.html?role=customer";
-      return null;
+  <script>
+    const BACKEND_BASE = "https://docqa-api.onrender.com";
+
+    function getEmailOrRedirect() {
+      const email = localStorage.getItem("shiperp_user_email");
+      const role = localStorage.getItem("shiperp_user_role");
+
+      if (!email || role !== "customer") {
+        window.location.href = "login.html?role=customer";
+        return null;
+      }
+      return email;
     }
 
-    return email;
-  }
+    function openAIBot(e) {
+      if (e) e.preventDefault();
 
-  getEmailOrRedirect();
-</script> 
+      const email = getEmailOrRedirect();
+      if (!email) return;
+
+      const token = localStorage.getItem("docqa_token");
+      if (!token) {
+        window.location.href = "login.html?role=customer";
+        return;
+      }
+
+      window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(token)}`;
+    }
+
+    // Gate page access
+    getEmailOrRedirect();
+  </script>
+</body>
 </html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload Document for AI Bot</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Upload a Document for AI Analysis</h1>
+    <p>This document will be private and usable only in your chat session.</p>
+
+    <input type="file" id="fileInput" />
+    <button onclick="uploadFile()">Upload</button>
+
+    <p id="status" style="margin-top:15px;"></p>
+    <hr>
+    <button onclick="goToBot()">Back to AI Bot</button>
+  </div>
+
+  <script>
+    function apiBase() {
+      return (window.DOCQA_API_BASE || "").replace(/\/+$/, "");
+    }
+
+    function requireLogin() {
+      const token = localStorage.getItem("docqa_token");
+      const role = localStorage.getItem("shiperp_user_role");
+
+      if (!token) {
+        const r = (role === "internal" || role === "customer") ? role : "customer";
+        window.location.href = `login.html?role=${encodeURIComponent(r)}`;
+        return false;
+      }
+
+      return true;
+    }
+
+    async function uploadFile() {
+      if (!requireLogin()) return;
+
+      const API = apiBase();
+      const fileInput = document.getElementById("fileInput");
+      const statusEl = document.getElementById("status");
+
+      if (!API) {
+        statusEl.textContent = "Configuration error: missing API base URL.";
+        return;
+      }
+
+      if (!fileInput.files || !fileInput.files[0]) {
+        statusEl.textContent = "Please select a file first.";
+        return;
+      }
+
+      statusEl.textContent = "Uploading document...";
+
+      const form = new FormData();
+      form.append("file", fileInput.files[0]);
+
+      try {
+        const res = await fetch(`${API}/upload`, {
+          method: "POST",
+          body: form,
+          credentials: "include"  // important for session cookie
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error(data.error || "Upload failed");
+        }
+
+        statusEl.textContent = data.message || "Upload successful.";
+      } catch (err) {
+        statusEl.textContent = "ERROR: " + (err.message || "Upload failed.");
+      }
+    }
+
+    function goToBot() {
+      const API = apiBase();
+      const token = localStorage.getItem("docqa_token");
+
+      if (!token) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      window.location.href = `${API}/sso?token=${encodeURIComponent(token)}`;
+    }
+
+    requireLogin();
+  </script>
+</body>
+</html>

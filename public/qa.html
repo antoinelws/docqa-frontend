@@ -1,96 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShipERP Q&A Bot</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Redirecting...</title>
 </head>
 <body>
-  <div class="container">
-    <img src="https://www.shiperp.com/wp-content/uploads/2020/04/ShipERP-Logo.png" alt="ShipERP Logo" class="logo">
-    <h1>ShipERP AI Assistant</h1>
-    <p style="text-align: center; font-size: 16px; color: #555;">Ask questions based on documentation indexed from SharePoint.<br>Results may vary based on your internal access.</p>
-
-    <section>
-      <h2>Ask a Question</h2>
-
-      <label for="question">Your Question:</label>
-      <textarea id="question" rows="4" cols="50" placeholder="Ask your question here..."></textarea>
-
-      <button onclick="console.log('Submit button clicked'); askQuestion()">Submit</button>
-      <p id="response"></p>
-    </section>
-
-    <hr>
-
-    <section>
-      <h2>Upload a Document</h2>
-      <input type="file" id="fileInput" />
-      <button onclick="console.log('Upload button clicked'); uploadFile()">Upload</button>
-      <p id="uploadStatus"></p>
-    </section>
-  </div>
-
+  <p>AI Bot moved. Redirecting...</p>
   <script>
-  console.log("QA Bot page loaded");
-</script>
-<script>
-  function askQuestion() {
-    console.log("askQuestion triggered");
-  const email = localStorage.getItem("shiperp_user_email");
+    const BACKEND_BASE = "https://docqa-api.onrender.com";
+    const token = localStorage.getItem("docqa_token");
+    const role = localStorage.getItem("shiperp_user_role");
 
-  if (!email) {
-    // On ne sait pas si c'est internal ou customer ⇒ on redirige vers login générique
-    window.location.href = "login.html";
-  }
-    const question = document.getElementById("question").value;
-
-    const formData = new FormData();
-    formData.append("user_email", email);
-    formData.append("question", question);
-
-    fetch("https://docqa-api.onrender.com/ask", {
-      method: "POST",
-      body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-      console.log("Response received:", data);
-      document.getElementById("response").textContent = data.answer || data.error || "No response";
-    })
-    .catch(err => {
-      console.error("Fetch error:", err);
-      document.getElementById("response").textContent = "Error: " + err.message;
-    });
-  }
-
-  function uploadFile() {
-    console.log("uploadFile triggered");
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    if (!file) {
-      alert("Please select a file.");
-      return;
+    if (!token) {
+      // fallback: send to login with role if present
+      const r = (role === "internal" || role === "customer") ? role : "customer";
+      window.location.href = `login.html?role=${encodeURIComponent(r)}`;
+    } else {
+      window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(token)}`;
     }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    fetch('https://docqa-api.onrender.com/upload', {
-      method: 'POST',
-      body: formData
-    })
-    .then(response => response.text())
-    .then(result => {
-      console.log("Upload result:", result);
-      document.getElementById('uploadStatus').innerText = "Upload successful!";
-    })
-    .catch(error => {
-      console.error('Upload error:', error);
-      document.getElementById('uploadStatus').innerText = "Upload failed.";
-    });
-  }
-</script>
+  </script>
 </body>
 </html>

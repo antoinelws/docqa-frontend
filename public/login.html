@@ -74,6 +74,7 @@
         // Save basic info locally (optional)
         localStorage.setItem("shiperp_user_email", email);
         localStorage.setItem("shiperp_user_role", role);
+        localStorage.setItem("docqa_token", data.token);
 
         // Redirect to backend SSO entry
         window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(data.token)}`;

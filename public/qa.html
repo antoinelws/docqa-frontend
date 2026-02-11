@@ -21,11 +21,9 @@
     if (!API) {
       document.body.innerHTML = "<p>Missing DOCQA_API_BASE config.</p>";
     } else if (!token) {
-      // No token → send back to login with correct role
       const r = (role === "internal" || role === "customer") ? role : "customer";
       window.location.href = `login.html?role=${encodeURIComponent(r)}`;
     } else {
-      // Proper SSO entry
       window.location.href = `${API}/sso?token=${encodeURIComponent(token)}`;
     }
   </script>

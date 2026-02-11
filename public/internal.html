@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ShipERP Employee Portal</title>
+  <script src="config.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -43,13 +44,14 @@
   </div>
 
   <script>
-    const BACKEND_BASE = "https://docqa-api.onrender.com";
+    function apiBase() {
+      return (window.DOCQA_API_BASE || "").replace(/\/+$/, "");
+    }
 
     function getEmailOrRedirect() {
       const email = localStorage.getItem("shiperp_user_email");
       const role = localStorage.getItem("shiperp_user_role");
 
-      // internal.html requires role = internal
       if (!email || role !== "internal") {
         window.location.href = "login.html?role=internal";
         return null;
@@ -65,16 +67,19 @@
 
       const token = localStorage.getItem("docqa_token");
       if (!token) {
-        // token absent => re-login (ça évite une régression silencieuse)
         window.location.href = "login.html?role=internal";
         return;
       }
 
-      // Redirect to backend SSO (sets session then /chat-ui)
-      window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(token)}`;
+      const API = apiBase();
+      if (!API) {
+        alert("Missing DOCQA_API_BASE config.");
+        return;
+      }
+
+      window.location.href = `${API}/sso?token=${encodeURIComponent(token)}`;
     }
 
-    // Gate page access
     getEmailOrRedirect();
   </script>
 </body>

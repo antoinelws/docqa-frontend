@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShipERP AI Assistant</title>
   <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
 </head>
 <body>
   <div class="home-screen">
@@ -16,7 +17,9 @@
   </div>
 
   <script>
-    const BACKEND_BASE = "https://docqa-api.onrender.com";
+    function apiBase() {
+      return (window.DOCQA_API_BASE || "").replace(/\/+$/, "");
+    }
 
     function getEmailOrRedirect() {
       const email = localStorage.getItem("shiperp_user_email");
@@ -41,10 +44,15 @@
         return;
       }
 
-      window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(token)}`;
+      const API = apiBase();
+      if (!API) {
+        alert("Missing DOCQA_API_BASE config.");
+        return;
+      }
+
+      window.location.href = `${API}/sso?token=${encodeURIComponent(token)}`;
     }
 
-    // Gate page access
     getEmailOrRedirect();
   </script>
 </body>

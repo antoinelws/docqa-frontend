@@ -5,6 +5,8 @@
   <title>ShipERP Assistant Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
+  <!-- IMPORTANT: load config before using window.DOCQA_API_BASE -->
+  <script src="config.js"></script>
 </head>
 <body>
   <div class="container">
@@ -27,8 +29,6 @@
   </div>
 
   <script>
-    const BACKEND_BASE = "https://docqa-api.onrender.com";
-
     function getRoleFromQuery() {
       const params = new URLSearchParams(window.location.search);
       const role = params.get("role");
@@ -40,6 +40,10 @@
     roleLabel.textContent = role === "internal"
       ? "Login to access the internal ShipERP portal."
       : "Login to access the customer ShipERP portal.";
+
+    function apiBase() {
+      return (window.DOCQA_API_BASE || "").replace(/\/+$/, "");
+    }
 
     document.getElementById("loginForm").addEventListener("submit", async function (e) {
       e.preventDefault();
@@ -53,6 +57,12 @@
         return;
       }
 
+      const API = apiBase();
+      if (!API) {
+        errorEl.textContent = "Missing DOCQA_API_BASE config.";
+        return;
+      }
+
       errorEl.textContent = "";
 
       try {
@@ -60,27 +70,29 @@
         formData.append("email", email);
         formData.append("password", password);
 
-        const response = await fetch(`${BACKEND_BASE}/auth/login`, {
+        const response = await fetch(`${API}/auth/login`, {
           method: "POST",
           body: formData
         });
 
-        const data = await response.json();
-
+        const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(data.error || "Login failed");
         }
 
-        // Save basic info locally (optional)
+        // Save in localStorage for later pages / gating
         localStorage.setItem("shiperp_user_email", email);
         localStorage.setItem("shiperp_user_role", role);
+
+        // Store SSO token for bot access (important)
         localStorage.setItem("docqa_token", data.token);
 
-        // Redirect to backend SSO entry
-        window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(data.token)}`;
+        // OPTIONAL: if you want to land on internal/customer menu instead of bot immediately,
+        // comment the next line and redirect to internal.html/customer.html.
+        window.location.href = `${API}/sso?token=${encodeURIComponent(data.token)}`;
 
       } catch (err) {
-        errorEl.textContent = err.message;
+        errorEl.textContent = err.message || "Login failed";
       }
     });
   </script>

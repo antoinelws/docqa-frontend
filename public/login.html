@@ -89,7 +89,14 @@
 
         // OPTIONAL: if you want to land on internal/customer menu instead of bot immediately,
         // comment the next line and redirect to internal.html/customer.html.
-        window.location.href = `${API}/sso?token=${encodeURIComponent(data.token)}`;
+        // store token
+        localStorage.setItem("docqa_token", data.token);
+        
+        // redirect to correct portal page
+        window.location.href = (role === "internal")
+          ? "internal.html"
+          : "customer.html";
+
 
       } catch (err) {
         errorEl.textContent = err.message || "Login failed";

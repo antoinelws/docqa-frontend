@@ -28,6 +28,7 @@
       background-color: #0078D4;
       width: 320px;
       border-radius: 8px;
+      cursor: pointer;
     }
     .button:hover {
       background-color: #005fa3;
@@ -37,25 +38,44 @@
 <body>
   <h1>ShipERP Employee Portal</h1>
   <div class="button-container">
-    <a href="qa.html" class="button">Access AI Bot</a>
+    <a href="#" class="button" onclick="openAIBot(event)">Access AI Bot</a>
     <a href="sow_options.html" class="button">SOW Internal Estimation</a>
   </div>
-</body>
-  <script>
-  function getEmailOrRedirect() {
-    const email = localStorage.getItem("shiperp_user_email");
-    const role = localStorage.getItem("shiperp_user_role");
 
-    // internal.html require role = internal
-    if (!email || role !== "internal") {
-      window.location.href = "login.html?role=internal";
-      return null;
+  <script>
+    const BACKEND_BASE = "https://docqa-api.onrender.com";
+
+    function getEmailOrRedirect() {
+      const email = localStorage.getItem("shiperp_user_email");
+      const role = localStorage.getItem("shiperp_user_role");
+
+      // internal.html requires role = internal
+      if (!email || role !== "internal") {
+        window.location.href = "login.html?role=internal";
+        return null;
+      }
+      return email;
     }
 
-    return email;
-  }
+    function openAIBot(e) {
+      if (e) e.preventDefault();
 
-  getEmailOrRedirect();
-</script>
+      const email = getEmailOrRedirect();
+      if (!email) return;
 
+      const token = localStorage.getItem("docqa_token");
+      if (!token) {
+        // token absent => re-login (ça évite une régression silencieuse)
+        window.location.href = "login.html?role=internal";
+        return;
+      }
+
+      // Redirect to backend SSO (sets session then /chat-ui)
+      window.location.href = `${BACKEND_BASE}/sso?token=${encodeURIComponent(token)}`;
+    }
+
+    // Gate page access
+    getEmailOrRedirect();
+  </script>
+</body>
 </html>

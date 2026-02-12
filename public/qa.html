@@ -3,29 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Redirecting to AI Bot...</title>
+  <title>ShipERP AI Assistant</title>
+  <link rel="stylesheet" href="style.css">
   <script src="config.js"></script>
 </head>
 <body>
-  <p>Redirecting to AI Bot...</p>
+  <div class="container">
+    <h1>ShipERP AI Assistant</h1>
+    <p id="who" style="color:#555;"></p>
 
-  <script>
-    function apiBase() {
-      return (window.DOCQA_API_BASE || "").replace(/\/+$/, "");
-    }
+    <section>
+      <h2>Ask a Question</h2>
+      <textarea id="question" rows="4" placeholder="Type your question here..."></textarea>
+      <button id="askBtn">Ask</button>
+      <pre id="response" style="white-space:pre-wrap;"></pre>
+    </section>
 
-    const API = apiBase();
-    const token = localStorage.getItem("docqa_token");
-    const role = localStorage.getItem("shiperp_user_role");
+    <hr>
 
-    if (!API) {
-      document.body.innerHTML = "<p>Missing DOCQA_API_BASE config.</p>";
-    } else if (!token) {
-      const r = (role === "internal" || role === "customer") ? role : "customer";
-      window.location.href = `login.html?role=${encodeURIComponent(r)}`;
-    } else {
-      window.location.href = `${API}/sso?token=${encodeURIComponent(token)}`;
-    }
-  </script>
+    <section>
+      <h2>Upload a Document (Private)</h2>
+      <input type="file" id="fileInput" />
+      <button id="uploadBtn">Upload</button>
+      <p id="uploadStatus"></p>
+    </section>
+  </div>
+
+  <script src="qa.js"></script>
 </body>
 </html>

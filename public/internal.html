@@ -1,4 +1,3 @@
-<!-- public/internal.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,41 +6,24 @@
   <title>ShipERP Employee Portal</title>
   <script src="config.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f4f8;
-      text-align: center;
-      padding: 50px;
-    }
-    h1 {
-      font-size: 2rem;
-      color: #0078D4;
-    }
-    .button-container {
-      margin-top: 3rem;
-    }
+    body { font-family: Arial, sans-serif; background-color: #f0f4f8; text-align: center; padding: 50px; }
+    h1 { font-size: 2rem; color: #0078D4; }
+    .button-container { margin-top: 3rem; }
     .button {
-      display: block;
-      margin: 1.2rem auto;
-      padding: 1rem 2rem;
-      font-size: 1.1rem;
-      text-decoration: none;
-      color: white;
-      background-color: #0078D4;
-      width: 320px;
-      border-radius: 8px;
-      cursor: pointer;
+      display: block; margin: 1.2rem auto; padding: 1rem 2rem; font-size: 1.1rem;
+      text-decoration: none; color: white; background-color: #0078D4;
+      width: 320px; border-radius: 8px; cursor: pointer;
     }
-    .button:hover {
-      background-color: #005fa3;
-    }
+    .button:hover { background-color: #005fa3; }
   </style>
 </head>
 <body>
   <h1>ShipERP Employee Portal</h1>
+
   <div class="button-container">
-    <a href="#" class="button" onclick="openAIBot(event)">Access AI Bot</a>
+    <a href="qa.html" class="button">Access AI Bot</a>
     <a href="sow_options.html" class="button">SOW Internal Estimation</a>
+    <a href="#" class="button" onclick="logout(event)" style="background:#666;">Logout</a>
   </div>
 
   <script>
@@ -49,42 +31,36 @@
       return (window.DOCQA_API_BASE || "").replace(/\/+$/, "");
     }
 
-    function requireRoleOrRedirect(expectedRole) {
-      const email = localStorage.getItem("shiperp_user_email");
-      const role  = localStorage.getItem("shiperp_user_role");
-      if (!email || role !== expectedRole) {
-        window.location.href = `login.html?role=${encodeURIComponent(expectedRole)}`;
-        return null;
-      }
-      return email;
+    async function apiFetch(path, options = {}) {
+      const API = apiBase();
+      if (!API) throw new Error("Missing DOCQA_API_BASE");
+
+      return fetch(`${API}${path}`, { ...options, credentials: "include" });
     }
 
-    function openAIBot(e) {
-      if (e) e.preventDefault();
-
-      const email = requireRoleOrRedirect("internal");
-      if (!email) return;
-
-      const token = localStorage.getItem("docqa_token");
-      if (!token) {
+    async function guard() {
+      const role = localStorage.getItem("shiperp_user_role");
+      if (role !== "internal") {
         window.location.href = "login.html?role=internal";
         return;
       }
 
-      const API = apiBase();
-      if (!API) {
-        alert("Missing DOCQA_API_BASE config.");
-        return;
+      // check session cookie is alive
+      const res = await apiFetch("/me");
+      if (!res.ok) {
+        window.location.href = "login.html?role=internal";
       }
-
-      // After SSO, come back to your Vercel bot page
-      const nextUrl = `${window.location.origin}/qa.html`;
-
-      window.location.href =
-        `${API}/sso?token=${encodeURIComponent(token)}&next=${encodeURIComponent(nextUrl)}`;
     }
 
-    requireRoleOrRedirect("internal");
+    async function logout(e) {
+      if (e) e.preventDefault();
+      try { await apiFetch("/logout", { method: "POST" }); } catch {}
+      localStorage.removeItem("shiperp_user_role");
+      localStorage.removeItem("shiperp_user_email");
+      window.location.href = "login.html?role=internal";
+    }
+
+    guard();
   </script>
 </body>
 </html>

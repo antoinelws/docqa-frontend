@@ -79,6 +79,8 @@
 
         // store role gating (front only)
         localStorage.setItem("shiperp_user_role", role);
+        localStorage.setItem("shiperp_user_email", email);
+
 
         // IMPORTANT: create backend session cookie via /sso redirect
         const nextUrl = new URL(role === "internal" ? "internal.html" : "customer.html", window.location.origin).toString();

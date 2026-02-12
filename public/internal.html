@@ -1,3 +1,4 @@
+<!-- public/internal.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -48,12 +49,11 @@
       return (window.DOCQA_API_BASE || "").replace(/\/+$/, "");
     }
 
-    function getEmailOrRedirect() {
+    function requireRoleOrRedirect(expectedRole) {
       const email = localStorage.getItem("shiperp_user_email");
-      const role = localStorage.getItem("shiperp_user_role");
-
-      if (!email || role !== "internal") {
-        window.location.href = "login.html?role=internal";
+      const role  = localStorage.getItem("shiperp_user_role");
+      if (!email || role !== expectedRole) {
+        window.location.href = `login.html?role=${encodeURIComponent(expectedRole)}`;
         return null;
       }
       return email;
@@ -62,7 +62,7 @@
     function openAIBot(e) {
       if (e) e.preventDefault();
 
-      const email = getEmailOrRedirect();
+      const email = requireRoleOrRedirect("internal");
       if (!email) return;
 
       const token = localStorage.getItem("docqa_token");
@@ -77,10 +77,14 @@
         return;
       }
 
-      window.location.href = `${API}/sso?token=${encodeURIComponent(token)}`;
+      // After SSO, come back to your Vercel bot page
+      const nextUrl = `${window.location.origin}/qa.html`;
+
+      window.location.href =
+        `${API}/sso?token=${encodeURIComponent(token)}&next=${encodeURIComponent(nextUrl)}`;
     }
 
-    getEmailOrRedirect();
+    requireRoleOrRedirect("internal");
   </script>
 </body>
 </html>

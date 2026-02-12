@@ -5,7 +5,6 @@
   <title>ShipERP Assistant Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
-  <!-- IMPORTANT: load config before using window.DOCQA_API_BASE -->
   <script src="config.js"></script>
 </head>
 <body>
@@ -48,7 +47,7 @@
     document.getElementById("loginForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      const email = document.getElementById("email").value.trim();
+      const email = document.getElementById("email").value.trim().toLowerCase();
       const password = document.getElementById("password").value.trim();
       const errorEl = document.getElementById("error");
 
@@ -76,27 +75,17 @@
         });
 
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || "Login failed");
-        }
+        if (!response.ok) throw new Error(data.error || "Login failed");
 
-        // Save in localStorage for later pages / gating
-        localStorage.setItem("shiperp_user_email", email);
+        // store role gating (front only)
         localStorage.setItem("shiperp_user_role", role);
 
-        // Store SSO token for bot access (important)
-        localStorage.setItem("docqa_token", data.token);
+        // IMPORTANT: create backend session cookie via /sso redirect
+        const nextUrl = new URL(role === "internal" ? "internal.html" : "customer.html", window.location.origin).toString();
+        const ssoUrl = `${API}/sso?token=${encodeURIComponent(data.token)}&next=${encodeURIComponent(nextUrl)}`;
 
-        // OPTIONAL: if you want to land on internal/customer menu instead of bot immediately,
-        // comment the next line and redirect to internal.html/customer.html.
-        // store token
-        localStorage.setItem("docqa_token", data.token);
-        
-        // redirect to correct portal page
-        window.location.href = (role === "internal")
-          ? "internal.html"
-          : "customer.html";
-
+        // Navigation (NOT fetch) so the Set-Cookie works
+        window.location.href = ssoUrl;
 
       } catch (err) {
         errorEl.textContent = err.message || "Login failed";

@@ -134,6 +134,7 @@ async function askQuestion() {
   try {
     const form = new FormData();
     form.append("message", q);
+    form.append("debug", "true");
 
     const res = await apiFetch("/chat-api", {
       method: "POST",

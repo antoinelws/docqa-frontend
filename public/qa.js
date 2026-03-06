@@ -28,44 +28,48 @@ function formatMessageContent(text) {
   return escapeHtml(text).replace(/\n/g, "<br>");
 }
 
-function getChatEl() {
+function chatEl() {
   return document.getElementById("chat");
 }
 
-function getQuestionEl() {
+function questionEl() {
   return document.getElementById("question");
 }
 
-function getChatStatusEl() {
+function chatStatusEl() {
   return document.getElementById("chatStatus");
 }
 
 function scrollChatToBottom() {
-  const chat = getChatEl();
-  chat.scrollTop = chat.scrollHeight;
+  const el = chatEl();
+  el.scrollTop = el.scrollHeight;
 }
 
 function renderMessages() {
-  const chat = getChatEl();
+  const el = chatEl();
 
   if (!state.messages.length) {
-    chat.innerHTML = `
-      <div class="message system">
-        <div class="message-header">Assistant</div>
-        Start a conversation by asking a question about ShipERP.
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-title">Start a conversation</div>
+        <div class="empty-state-text">
+          Ask a question about ShipERP, ECC, EWM, carriers, labels, break bulk, output, or uploaded documents.
+        </div>
       </div>
     `;
     return;
   }
 
-  chat.innerHTML = state.messages.map((msg) => {
-    const roleClass = msg.role === "user" ? "user" : msg.role === "assistant" ? "assistant" : "system";
-    const label = msg.role === "user" ? "You" : msg.role === "assistant" ? "ShipERP AI" : "System";
+  el.innerHTML = state.messages.map((msg) => {
+    const roleClass = msg.role === "user" ? "user" : "assistant";
+    const label = msg.role === "user" ? "You" : "ShipERP AI";
 
     return `
-      <div class="message ${roleClass}">
-        <div class="message-header">${label}</div>
-        <div class="message-body">${formatMessageContent(msg.content)}</div>
+      <div class="msg-row ${roleClass}">
+        <div class="msg-bubble ${roleClass}">
+          <div class="msg-label">${label}</div>
+          <div class="msg-content">${formatMessageContent(msg.content)}</div>
+        </div>
       </div>
     `;
   }).join("");
@@ -89,18 +93,13 @@ function updateLastAssistantMessage(content) {
 }
 
 function setChatStatus(text) {
-  getChatStatusEl().textContent = text || "";
+  chatStatusEl().textContent = text || "";
 }
 
 function setSending(isSending) {
   state.isSending = isSending;
-
-  const askBtn = document.getElementById("askBtn");
-  const questionEl = getQuestionEl();
-
-  askBtn.disabled = isSending;
-  questionEl.disabled = isSending;
-
+  document.getElementById("askBtn").disabled = isSending;
+  questionEl().disabled = isSending;
   setChatStatus(isSending ? "Thinking..." : "");
 }
 
@@ -122,15 +121,14 @@ async function loadMe() {
 async function askQuestion() {
   if (state.isSending) return;
 
-  const questionEl = getQuestionEl();
-  const q = questionEl.value.trim();
-
+  const q = questionEl().value.trim();
   if (!q) return;
 
   addMessage("user", q);
   addMessage("assistant", "Thinking...");
 
-  questionEl.value = "";
+  questionEl().value = "";
+  autoResizeTextarea();
   setSending(true);
 
   try {
@@ -154,7 +152,7 @@ async function askQuestion() {
     updateLastAssistantMessage(`ERROR: ${err.message || "Request failed"}`);
   } finally {
     setSending(false);
-    questionEl.focus();
+    questionEl().focus();
   }
 }
 
@@ -196,10 +194,16 @@ async function uploadFile() {
   }
 }
 
+function autoResizeTextarea() {
+  const el = questionEl();
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 180) + "px";
+}
+
 function resetConversationView() {
   state.messages = [];
   renderMessages();
-  setChatStatus("Conversation cleared on screen. Backend session memory is still active until refreshed/restarted.");
+  setChatStatus("Conversation cleared on screen. Backend memory is still active.");
 }
 
 function bindEvents() {
@@ -207,17 +211,20 @@ function bindEvents() {
   document.getElementById("uploadBtn").addEventListener("click", uploadFile);
   document.getElementById("newChatBtn").addEventListener("click", resetConversationView);
 
-  getQuestionEl().addEventListener("keydown", (e) => {
+  questionEl().addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       askQuestion();
     }
   });
+
+  questionEl().addEventListener("input", autoResizeTextarea);
 }
 
 async function init() {
   bindEvents();
   renderMessages();
+  autoResizeTextarea();
   await loadMe();
 }
 

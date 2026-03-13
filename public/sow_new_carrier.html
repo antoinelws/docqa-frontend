@@ -289,6 +289,63 @@
       .features-grid {
         grid-template-columns: 1fr;
       }
+      
+      .btn.secondary {
+        width: 100%;
+        padding: 0.95rem 1rem;
+        background: white;
+        color: #4b5563;
+        border: 2px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s ease;
+      }
+      
+      .btn.secondary:hover {
+        border-color: #667eea;
+        color: #667eea;
+        transform: translateY(-1px);
+      }
+      
+      .estimation-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      
+      .saved-estimations {
+        margin-top: 1.25rem;
+      }
+      
+      .action-status {
+        margin-top: 1rem;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.95rem;
+        display: none;
+      }
+      
+      .action-status.show {
+        display: block;
+      }
+      
+      .pdf-export-mode .btn,
+      .pdf-export-mode .estimation-actions,
+      .pdf-export-mode .saved-estimations,
+      .pdf-export-mode .action-status {
+        display: none !important;
+      }
+      
+      @media (max-width: 768px) {
+        .estimation-actions {
+          grid-template-columns: 1fr;
+        }
+      }
     }
   </style>
 </head>
@@ -563,17 +620,48 @@
           </div>
         </div>
 
-        <button class="btn primary" id="btnCalc">
-          <span class="icon">📊</span>
-          <span>Calculate Effort Estimation</span>
+<button class="btn primary" id="btnCalc">
+  <span class="icon">📊</span>
+  <span>Calculate Effort Estimation</span>
+</button>
+
+      <div id="resultBox"></div>
+      
+      <div class="estimation-actions" id="estimationActions">
+        <button type="button" class="btn secondary" id="btnSaveDownload">
+          <span class="icon">💾</span>
+          <span>Save & Download</span>
         </button>
-        
-        <div id="resultBox"></div>
+      
+        <button type="button" class="btn secondary" id="btnSendSow">
+          <span class="icon">📧</span>
+          <span>Send to SOW team</span>
+        </button>
+      </div>
+      
+      <div class="saved-estimations">
+        <div class="form-row" style="margin-top: 1rem; margin-bottom: 0;">
+          <div class="form-group">
+            <label for="savedEstimations">Saved estimations</label>
+            <select id="savedEstimations">
+              <option value="">-- Select saved estimation --</option>
+            </select>
+          </div>
+          <div class="form-group" style="justify-content: end;">
+            <button type="button" class="btn secondary" id="btnLoadEstimation">
+              <span class="icon">📂</span>
+              <span>Load</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="actionStatus" class="action-status"></div>
       </form>
     </div>
   </div>
 
-  <!-- Scripts (order matters) -->
+    <!-- Scripts (order matters) -->
   <script>
     // Add visual feedback for checkbox selection
     document.addEventListener('DOMContentLoaded', () => {
@@ -590,8 +678,11 @@
       });
     });
   </script>
+
   <script src="config.js"></script>
   <script src="estimation_rules.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="script_sow_new_carrier.js"></script>
 </body>
 </html>

@@ -225,6 +225,62 @@
       margin-right: 0.5rem;
       font-weight: 600;
     }
+    .btn.secondary {
+      width: 100%;
+      padding: 0.95rem 1rem;
+      background: white;
+      color: #4b5563;
+      border: 2px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    
+    .btn.secondary:hover {
+      border-color: #667eea;
+      color: #667eea;
+      transform: translateY(-1px);
+    }
+    
+    .estimation-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .saved-estimations {
+      margin-top: 1.25rem;
+    }
+    
+    .action-status {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.95rem;
+      display: none;
+    }
+    
+    .action-status.show {
+      display: block;
+    }
+    
+    .pdf-export-mode .btn-calculate,
+    .pdf-export-mode .estimation-actions,
+    .pdf-export-mode .saved-estimations,
+    .pdf-export-mode .action-status {
+      display: none !important;
+    }
+    
+    @media (max-width: 768px) {
+      .estimation-actions {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <script>

@@ -1,4 +1,10 @@
 // config.js — tiny config loader with overrides
+window.PORTAL_CONFIG = {
+  email: {
+    netnewRecipient: "alauwens@erp-is.com",
+    sowRecipient: "sow@erp-is.com"
+  }
+};
 window.DOCQA_API_BASE = "https://docqa-api.onrender.com";
 window.SOWCFG = (function () {
   const LS_KEY = "sow_config_v1";

@@ -6,7 +6,7 @@
     SERVICE_ID: "service_x8qqp19",
     TEMPLATE_ID: "template_7whkrog",
     USER_ID: "PuZpMq1o_LbVO4IMJ",
-    to_email: window.PORTAL_EMAIL_CONFIG?.sowRecipient || "sow@erp-is.com"
+    to_email: window.PORTAL_CONFIG?.email?.sowRecipient || "sow@erp-is.com"
   };
 
   function $(id) { return document.getElementById(id); }

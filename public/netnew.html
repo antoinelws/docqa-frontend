@@ -227,7 +227,7 @@ const QUOTE_EMAILJS = {
   SERVICE_ID:  "service_x8qqp19",           // same as your other forms
   TEMPLATE_ID: "template_7whkrog",     // <-- replace with your new template ID
   USER_ID:     "PuZpMq1o_LbVO4IMJ",
-  TO_EMAIL:    "antoine.lws@gmail.com",
+  to_email: window.PORTAL_CONFIG?.email?.netnewRecipient,
 };
 
 async function sendQuoteViaEmailJS({ subject, messageHtml, extraParams = {} }) {

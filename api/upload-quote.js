@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { fileName, pdfBase64 } = req.body || {};
+    const { fileName, pdfBase64, category, estimationType } = req.body || {};
     if (!fileName || !pdfBase64) {
       return res.status(400).json({ error: "Missing fileName or pdfBase64" });
     }
@@ -46,19 +46,26 @@ export default async function handler(req, res) {
     const { access_token } = await tokenRes.json();
 
     // 2) Prepare SharePoint info
-    const siteId = process.env.MS_SITE_ID;   // ex: "erpintegratedsolutions.sharepoint.com,xxx,yyy"
-    const driveId = process.env.MS_DRIVE_ID; // drive "Documents" du site PMO
-    const folderPath = process.env.MS_FOLDER_PATH || "AI/netNew Quote";
+    const siteId = process.env.MS_SITE_ID;
+    const driveId = process.env.MS_DRIVE_ID;
+
+    let folderPath = process.env.MS_FOLDER_PATH || "AI/netNew Quote";
+
+    if (category === "sow") {
+      folderPath = process.env.MS_SOW_FOLDER_PATH || "AI/SOW";
+    }
+
+    if (category === "sow" && estimationType === "new-carrier") {
+      folderPath = process.env.MS_SOW_NEW_CARRIER_FOLDER_PATH || folderPath;
+    }
 
     if (!siteId || !driveId) {
       console.error("Missing MS_SITE_ID or MS_DRIVE_ID");
       return res.status(500).json({ error: "Missing SharePoint configuration" });
     }
 
-    // pdfBase64 is raw base64 — turn it into binary
     const pdfBuffer = Buffer.from(pdfBase64, "base64");
 
-    // IMPORTANT : on encode chaque segment du chemin séparément
     const safeFolderPath = folderPath
       .split("/")
       .map((part) => encodeURIComponent(part))
@@ -97,7 +104,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           type: "view",
-          scope: "organization", // or "anonymous" si ton tenant le permet
+          scope: "organization",
         }),
       }
     );

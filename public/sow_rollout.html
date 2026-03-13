@@ -344,14 +344,51 @@
         </div>
       </div>
 
-      <button type="submit" class="btn-calculate" onclick="submitRolloutEstimate(); return false;">
+            <button type="submit" class="btn-calculate" id="btnCalc">
         <span class="icon">📊</span>
         Calculate Effort Estimation
       </button>
 
       <div id="rolloutResultBox"></div>
+
+      <div class="estimation-actions" id="estimationActions">
+        <button type="button" class="btn secondary" id="btnSaveDownload">
+          <span class="icon">💾</span>
+          <span>Save & Download</span>
+        </button>
+
+        <button type="button" class="btn secondary" id="btnSendSow">
+          <span class="icon">📧</span>
+          <span>Send to SOW team</span>
+        </button>
+      </div>
+
+      <div class="saved-estimations">
+        <div class="form-row" style="margin-top: 1rem; margin-bottom: 0;">
+          <div class="form-group">
+            <label for="savedEstimations">Saved estimations</label>
+            <select id="savedEstimations">
+              <option value="">-- Select saved estimation --</option>
+            </select>
+          </div>
+          <div class="form-group" style="justify-content: end;">
+            <button type="button" class="btn secondary" id="btnLoadEstimation">
+              <span class="icon">📂</span>
+              <span>Load</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="actionStatus" class="action-status"></div>
     </form>
   </div>
+
+  <script src="config.js"></script>
+  <script src="estimation_rules.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="script_sow_rollout.js"></script>
 
   <script>
     // Embedded script for calculation based on Excel formula logic
